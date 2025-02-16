@@ -280,6 +280,17 @@ int sgn(int x) { // not standard
 return x < 0;
 }
 
+int boil(int x) {
+  if (!x) {
+  return rand()&1 ? -1 : 1;
+  }
+
+  while (abs(x) != 1) {
+  x = x>>1;
+  }
+  return x;
+}
+
 void rand_populate(int coords[4][2]) {
 coords[0][0] = 19 + abs(rand()%18);
 coords[0][1] = 12 + abs(rand()%10);
@@ -431,13 +442,14 @@ int x_diff, y_diff;
       }
     }
   }
-  printf("total tracked collisions: %d\n", *coll_count);
+  printf("total tracked collisions: %d\nminor collisions: %d\n", *coll_count, *minor_collisions);
 }
 
 void fix_collisions(struct player **p, int *collisions, int pcount, int num_collisions) {
   int refer, offend;
   int x_diff, y_diff;
   int off_quad, ref_quad;
+  int x_shift, y_shift;
 
   char *off_cann, *ref_cann;
   int *off_dir, *ref_dir;
@@ -445,6 +457,8 @@ void fix_collisions(struct player **p, int *collisions, int pcount, int num_coll
 
   int tmp_dir, tmp_can;
   enum suit tmp_suit;
+
+  char use_quad;
 
   printf("collisions to be fixed: %d\n", num_collisions);
 
@@ -454,8 +468,7 @@ void fix_collisions(struct player **p, int *collisions, int pcount, int num_coll
   offend = collisions[i * 2 + 1];
   x_diff = p[offend]->board_loca[0] - p[refer]->board_loca[0];
   y_diff = p[offend]->board_loca[1] - p[refer]->board_loca[1];
-  off_quad = (sgn(y_diff)<<1) | sgn(x_diff);
-  ref_quad = (~off_quad)&3;
+
 
   off_cann = p[offend]->lost_cann;
   ref_cann = p[refer]->lost_cann;
@@ -464,8 +477,67 @@ void fix_collisions(struct player **p, int *collisions, int pcount, int num_coll
   off_suit = p[offend]->psuits;
   ref_suit = p[refer]->psuits;
 
+  x_shift = boil(p[offend]->pvect_loca[0]) * -1;
+  y_shift = boil(p[offend]->pvect_loca[1]) * -1;
+
+  use_quad = 0;
+
     if (abs(x_diff)==1 && abs(y_diff)==1) {
-      printf("ref: %d, off: %d\n", ref_quad, off_quad);
+    off_quad = (sgn(y_diff)<<1) | sgn(x_diff);
+    ref_quad = (~off_quad)&3;
+    use_quad = 1;
+    } else if (!x_diff && !y_diff) { // full body collisions
+    p[offend]->board_loca[0] += x_shift;
+    p[offend]->board_loca[1] += y_shift;
+    off_quad = ( sgn(y_shift)<<1 ) | sgn(x_shift);
+    ref_quad = (~off_quad)&3;
+    use_quad = 1;
+    } else if (x_diff ==  0 && y_diff == -1) { // offender top
+    p[offend]->board_loca[0] += x_shift;
+      if (x_shift == -1) {
+      off_quad = 3;
+      ref_quad = 0;
+      } else {
+      off_quad = 2;
+      ref_quad = 1;
+      }
+    use_quad = 1;
+    } else if (x_diff ==  0 && y_diff == 1) { // offender bottom
+    p[offend]->board_loca[0] += x_shift;
+      if (x_shift == -1) {
+      off_quad = 1;
+      ref_quad = 2;
+      } else {
+      off_quad = 0;
+      ref_quad = 3;
+      }
+    use_quad = 1;
+    } else if (x_diff == -1 && y_diff == 0) { // offender left
+    p[offend]->board_loca[1] += y_shift;
+      if (y_shift == -1) {
+      off_quad = 3;
+      ref_quad = 0;
+      } else {
+      off_quad = 1;
+      ref_quad = 2;
+      }
+    use_quad = 1;
+    } else if (x_diff ==  1 && y_diff == 0) { // offender right
+    p[offend]->board_loca[1] += y_shift;
+      if (y_shift == -1) {
+      off_quad = 2;
+      ref_quad = 1;
+      } else {
+      off_quad = 0;
+      ref_quad = 3;
+      }
+    use_quad = 1;
+    } else {
+    printf("We fixed it previously!\n");
+    }
+
+    if (use_quad) { // we have performed a fix and would like to augment cannons
+    printf("ref: %d, off: %d\n", ref_quad, off_quad);
       if (!off_cann[off_quad] && !ref_cann[ref_quad]) { // destroy both cannons
       off_cann[off_quad] = 1;
       ref_cann[ref_quad] = 1;
@@ -482,8 +554,6 @@ void fix_collisions(struct player **p, int *collisions, int pcount, int num_coll
       off_suit[off_quad] = ref_suit[ref_quad]; // trade cannon suit
       ref_suit[ref_quad] = tmp_suit;
       }
-    } else if (!x_diff && !y_diff) { // full body collisions
-    ;
     }
   }
 }
