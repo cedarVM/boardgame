@@ -7,7 +7,7 @@ Truly a boardgame
 
 `(g)cc -c -fpic ssw.c -o ssw.o -lX11`
 `(g)cc -shared ssw.o -o libssw.so -lX11`
-`(g)cc -I./ help.c -o help -lssw`
+`(g)cc -I./ -L./ help.c -o help -lssw`
 
 ## Notes:
 Need to check for collision.
