@@ -227,14 +227,25 @@ void pad_ranks(struct player *p, int select[4]) {
     if (select[i] < 13) {
       RegionScarf(select[i] * 68 + 10, i * 150 + 10, 48, 130, RGB(255,255,255), 19);
     }
+    if (p->lost_cann[i]) {
+    RegionFill(13 * 68 + 33, i * 150 + 58, 34, 34, RGB(255,255,255), 19);
+    } else {
     draw_dir(19, 13 * 68 + 33, i * 150 + 58, (~p->directions[i])&3 );
+    }
   }
 
   for (int i = 0; i < 13; i++) {
     for (int j = 0; j < 4; j++) {
-      draw_suit(19, i * 68, j * 150, p->psuits[j]);
       draw_rank(19, i * 68 + 17, j * 150 + 51, (enum rank)i);
+
+      if (p->lost_cann[j]) {
+      RegionFill(i * 68, j * 150, 34, 34, RGB(255,255,255), 19);
+      RegionFill(i  *68 + 34, j * 150 + 116, 34, 34, RGB(255,255,255), 19);
+      } else {
+      draw_suit(19, i * 68, j * 150, p->psuits[j]);
       draw_suit(19, i * 68 + 34, j * 150 + 116, p->psuits[j]);
+      }
+
     }
   }
 
@@ -263,6 +274,10 @@ void plist(struct player **multi, int num) {
 
 int abs(int x) {
 return x < 0 ? -x : x;
+}
+
+int sgn(int x) { // not standard
+return x < 0;
 }
 
 void rand_populate(int coords[4][2]) {
@@ -391,6 +406,87 @@ return saved_shots;
 
 }
 
+void track_collisions(struct player **p, int *ret, int pcount, int *coll_count, int *minor_collisions) {
+*coll_count = 0;
+*minor_collisions = 0;
+
+int mag_i, mag_j;
+int x_diff, y_diff;
+
+  for (int i = 0; i < pcount - 1; i++) {
+    for (int j = i + 1; j < pcount; j++) {
+      x_diff = abs(p[i]->board_loca[0] - p[j]->board_loca[0]);
+      y_diff = abs(p[i]->board_loca[1] - p[j]->board_loca[1]);
+
+      if (x_diff < 2 && y_diff < 2) {
+      mag_i = abs(p[i]->pvect_loca[0]) + abs(p[i]->pvect_loca[1]); // no square root needed
+      mag_j = abs(p[j]->pvect_loca[0]) + abs(p[j]->pvect_loca[1]);
+      ret[(*coll_count) * 2    ] = mag_i < mag_j ? i : j; // reference frame
+      ret[(*coll_count) * 2 + 1] = mag_i < mag_j ? j : i; // offending collider that will be corrected
+      (*coll_count)++;
+      printf("collision found at permutation: (%d, %d)\n", i, j);
+        if (x_diff==1 && y_diff==1) {
+        (*minor_collisions)++;
+        }
+      }
+    }
+  }
+  printf("total tracked collisions: %d\n", *coll_count);
+}
+
+void fix_collisions(struct player **p, int *collisions, int pcount, int num_collisions) {
+  int refer, offend;
+  int x_diff, y_diff;
+  int off_quad, ref_quad;
+
+  char *off_cann, *ref_cann;
+  int *off_dir, *ref_dir;
+  enum suit *off_suit, *ref_suit;
+
+  int tmp_dir, tmp_can;
+  enum suit tmp_suit;
+
+  printf("collisions to be fixed: %d\n", num_collisions);
+
+  for (int i = 0; i < num_collisions; i++) {
+  // investigate the nine cases of p[ref] <> p[offend]
+  refer  = collisions[i * 2    ];
+  offend = collisions[i * 2 + 1];
+  x_diff = p[offend]->board_loca[0] - p[refer]->board_loca[0];
+  y_diff = p[offend]->board_loca[1] - p[refer]->board_loca[1];
+  off_quad = (sgn(y_diff)<<1) | sgn(x_diff);
+  ref_quad = (~off_quad)&3;
+
+  off_cann = p[offend]->lost_cann;
+  ref_cann = p[refer]->lost_cann;
+  off_dir  = p[offend]->directions;
+  ref_dir  = p[refer]->directions;
+  off_suit = p[offend]->psuits;
+  ref_suit = p[refer]->psuits;
+
+    if (abs(x_diff)==1 && abs(y_diff)==1) {
+      printf("ref: %d, off: %d\n", ref_quad, off_quad);
+      if (!off_cann[off_quad] && !ref_cann[ref_quad]) { // destroy both cannons
+      off_cann[off_quad] = 1;
+      ref_cann[ref_quad] = 1;
+      } else { // exchange
+      tmp_can = off_cann[off_quad];
+      off_cann[off_quad] = ref_cann[ref_quad]; // trade cannon state
+      ref_cann[ref_quad] = tmp_can;
+
+      tmp_dir = off_dir[off_quad];
+      off_dir[off_quad]  = ref_dir[ref_quad]; // trade cannon direction
+      ref_dir[ref_quad]  = tmp_dir;
+
+      tmp_suit = off_suit[off_quad];
+      off_suit[off_quad] = ref_suit[ref_quad]; // trade cannon suit
+      ref_suit[ref_quad] = tmp_suit;
+      }
+    } else if (!x_diff && !y_diff) { // full body collisions
+    ;
+    }
+  }
+}
 
 void config(struct player *p, int coords[4][2]) {
   enum suit *pos_to_suit = p->psuits;
@@ -646,6 +742,10 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   int xloca, yloca;
   int where;
 
+  int collisions[player_count * 2]; // stored as tank[i] tank[j] [2] = {i, j}
+  int collision_count, icky_collisions; // Things can get pretty bad, actually
+
+
   while (1) { // main game loop
   curr_player = 0;
 
@@ -694,12 +794,21 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       } 
     } // shot selection
 
-    // logic for processing kills and whatnot
+    // Begin logic for processing kills and whatnot
+
     for (int i = 0; i < player_count; i++) {
       shot_store[i] = fire(players[i]);
     }
 
-    // TODO: find collisions
+    // collision handling
+    track_collisions(players, collisions, player_count, &collision_count, &icky_collisions);
+    icky_collisions = collision_count; // count all collisions as major going into loop
+
+    while (icky_collisions) { // while major collisions are nonzero
+      fix_collisions(players, collisions, player_count, collision_count);
+      track_collisions(players, collisions, player_count, &collision_count, &icky_collisions);
+      icky_collisions = collision_count - icky_collisions; // icky_collisions was prev minor_collisions
+    }
 
     back(); // this will not be used aggresively so as to not hurt my FUCKING EYES
     for (float t = 1.0; t >= 0; t -= 0.01) {   // animate deltas
@@ -715,7 +824,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         );
 
         for (int j = 0; j < 3; j++) { // compensatory grid redraw
-          for (int k = 0; k < 3; k++) {
+          for (int k = 0; k < 3; k++) { // Warning: this will redraw the torus boundaries
             RegionScarf(
             1 + xloca + j * 34 + 10 + DISPLAY_OFF,
             1 + yloca + k * 34 + 20, 34, 34, RGB(255,255,255), 0
