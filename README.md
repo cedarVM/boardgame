@@ -4,7 +4,7 @@
 Truly a boardgame
 
 ## Installation (approximately):
-Warning: You must have a slightly modified version of (Some Simple Wrappers)[https://github.com/xleph/ssw] (ssw) installed system wide for the following:
+Warning: You must have a slightly modified version of [https://github.com/xleph/ssw](Some Simple Wrappers) (ssw) installed system wide for the following:
 
 `(g)cc boardgammon.c -o boardgammon -lssw`
 
