@@ -1,14 +1,14 @@
-# libssw
+# The boardgame of all time
 
 ## Description:
-ssw is a library containing simple wrappers for basic X11 functions (/stdlib functions) included from 'X11/Xutil.h' (and stdlib.h)
+Truly a boardgame
 
-## Installation:
+## Installation (approximately):
 
 `(g)cc -c -fpic ssw.c -o ssw.o -lX11`
-`(g)cc -c -shared ssw.o -o libssw.so -lX11`
+`(g)cc -shared ssw.o -o libssw.so -lX11`
+`(g)cc -I./ help.c -o help -lssw`
 
-then, as root:
-
-`cp libssw.so /usr/lib/`
-`cp ssw.h /usr/include/`
+## Notes:
+Need to check for collision.
+Timeline is finishing this by Sunday
