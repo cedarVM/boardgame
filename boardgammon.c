@@ -233,7 +233,7 @@ void pad_ranks(struct player *p, int select[4]) {
     if (p->lost_cann[i]) {
     RegionFill(13 * 68 + 33, i * 150 + 58, 34, 34, RGB(255,255,255), 19);
     } else {
-    draw_dir(19, 13 * 68 + 33, i * 150 + 58, (~p->directions[i])&3 );
+    draw_dir(19, 13 * 68 + 33, i * 150 + 58, p->directions[i]);
     }
   }
 
@@ -595,6 +595,27 @@ void config(struct player *p, int coords[4][2]) {
 
 }
 
+int power_cycle(struct player **p, int pcount, int *pair, int down) {
+
+  char found = 0;
+  int where;
+
+  for (int i = 0; i < pcount; i++) {
+    where = intersect(p[i], pair);
+    if (where != 4) {
+      found = 1;
+      for (int j = 0; j < 4; j++) {
+      p[i]->lost_cann[j] = 0;
+      }
+    }
+  }
+  if (found) {
+  pair[0] = abs(rand()%56);
+  pair[1] = abs(rand()%31);
+  }
+return found ? 4 + (rand()&7) : down; // stored in main game loop as countdown till next powerup
+}
+
 int main(int argc, char **argv) {
 
 srand(23);
@@ -829,15 +850,24 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   char view;
 
+  int power_countdown = 8;
+  int power_pair[2] = {27, 15};
+
   while (1) { // main game loop
   curr_player = 0;
   view = 1;
+
+    printf("powerup in: %d\n", power_countdown);
+
+    if (!power_countdown) {
+    RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,255,0), 0); // new loca
+    }
 
     while (curr_player < player_count) { // per player shot selection
     pad_ranks(players[curr_player], pselect);
     plist(players, player_count);
     RegionFill(1700, 0, 10, 1080, RGB(0,0,0), 0);
-    RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0);
+    RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0); // curr player indicate
 
       for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 4; j++) {
@@ -903,6 +933,16 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       track_collisions(players, collisions, player_count, &collision_count, &icky_collisions);
       icky_collisions = collision_count - icky_collisions; // icky_collisions was prev minor_collisions
     }
+
+    if (!power_countdown) {
+    RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,0,0), 0); // erase old loca
+    Flush(0);
+    power_pair[0] = (power_pair[0] + 1)%56;
+    } else {
+    power_countdown--;
+    }
+
+    power_countdown = power_cycle(players, player_count, power_pair, power_countdown);
 
     back(); // this will not be used aggresively so as to not hurt my FUCKING EYES
     for (float t = 1.0; t >= 0; t -= 0.01) {   // animate deltas
