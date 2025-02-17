@@ -203,6 +203,11 @@ void back(void) {
   RegionFill(WW(0) - 4, 0, 10, 1080, RGB(0,0,0), 0);
 }
 
+void cover(int *where) {
+RegionFill(10 + DISPLAY_OFF + 34 * where[0], 20 + 34 * where[1], 34, 34, RGB(0,0,0), 0);
+RegionScarf(10 + DISPLAY_OFF + 34 * where[0] + 1, 20 + 34 * where[1] + 1, 34, 34, RGB(255,255,255), 0);
+}
+
 void pad(void) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
@@ -646,7 +651,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   w = 1920 / 56;
   grid = (h + w) / 2;
 
-  while (c.txt != 's') {
+/*  while (c.txt != 's') {
   Eve(&c, 19);
     switch (c.txt) {
       case 'c':
@@ -661,7 +666,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       back();
       Flush(0);
     }
-  }
+  }*/
 
   int player_count = 0;
 
@@ -679,16 +684,24 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   Eve(&c, 19);
 
+  RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
+  RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
+  back();
+  pad();
+  Flush(0);
+  Flush(19);
+
   while (1) { // player chooses tank config
   pad();
 
     if (validate(temp_player_pos)) {
       if (player_count) {
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
+      back();
 
-      for (int i = 0; i < 4; i++) { //suit_count
-      draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i);
-      }
+        for (int i = 0; i < 4; i++) { //suit_count
+        draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i);
+        }
 
       Flush(0);
 
@@ -701,6 +714,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
           break;
           }
         }
+
+      RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
+      back();
+      Flush(0);
+
       } else {
         player_count++;
       }
@@ -713,13 +731,15 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i);
     }
 
-    back();
+// back();
 
     Flush(0);
     Flush(19);
 
     Eve(&c, 19);
-    RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
+
+// fill whole
+
     if (c.x > 333 && c.y < 333 && c.x < 666) {
       next_pos = temp_player_pos[selected][1] ? temp_player_pos[selected][1] - 1 : temp_player_pos[selected][1];
       collides = 0;
@@ -727,6 +747,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         collides += next_pos == temp_player_pos[i][1] && temp_player_pos[selected][0] == temp_player_pos[i][0];
         }
         if (!collides) {
+        cover(temp_player_pos[selected]);
         temp_player_pos[selected][1] = next_pos;
         }
     } else if (c.x < 333 && c.y > 333 && c.y < 666) {
@@ -736,6 +757,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         collides += next_pos == temp_player_pos[i][0] && temp_player_pos[selected][1] == temp_player_pos[i][1];
         }
         if (!collides) {
+        cover(temp_player_pos[selected]);
         temp_player_pos[selected][0] = next_pos;
         }
     } else if (c.x > 666 && c.y > 333 && c.y < 666) {
@@ -745,6 +767,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         collides += next_pos == temp_player_pos[i][0] && temp_player_pos[selected][1] == temp_player_pos[i][1];
         }
         if (!collides) {
+        cover(temp_player_pos[selected]);
         temp_player_pos[selected][0] = next_pos;
         }
     } else if (c.x > 333 && c.x < 666 && c.y > 333 && c.y < 666) {
@@ -754,6 +777,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         collides += next_pos == temp_player_pos[i][1] && temp_player_pos[selected][0] == temp_player_pos[i][0];
         }
         if (!collides) {
+        cover(temp_player_pos[selected]);
         temp_player_pos[selected][1] = next_pos;
         }
     } else if (c.y < 333 && c.x > 666 && player_count > 2) {
@@ -866,7 +890,23 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,255,0), 0); // new loca
     }
 
-    while (curr_player < player_count) { // per player shot selection
+
+    for (int i = 0; i < player_count; i++) {
+      for (int z = 0; z < 10; z++) { 
+        for (int j = 0; j < 4; j++) {
+          if (players[i]->lost_cann[j]) {
+          RegionFill(10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                   34,
+                   34,
+                   RGB(255,255,255), 0);
+          Flush(0);
+          }
+        }
+      }
+    }
+
+    while (curr_player < player_count) { // player shot selection
     pad_ranks(players[curr_player], pselect);
     plist(players, player_count);
     RegionFill(1700, 0, 10, 1280, RGB(0,0,0), 0);
@@ -966,15 +1006,15 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         yloca = 34 * (yloca / 34); // calculate animation frame starting coord
 
         RegionFill(
-        xloca + 10 + DISPLAY_OFF,
-        yloca + 20, 102, 102, RGB(0,0,0), 0
+        xloca + 10 + DISPLAY_OFF - 34,
+        yloca + 20 - 34, 136, 136, RGB(0,0,0), 0
         );
 
-        for (int j = 0; j < 3; j++) { // compensatory grid redraw
-          for (int k = 0; k < 3; k++) { // Warning: this will redraw the torus boundaries
+        for (int j = 0; j < 4; j++) { // compensatory grid redraw
+          for (int k = 0; k < 4; k++) { // Warning: this will redraw the torus boundaries
             RegionScarf(
-            1 + xloca + j * 34 + 10 + DISPLAY_OFF,
-            1 + yloca + k * 34 + 20, 34, 34, RGB(255,255,255), 0
+            1 + xloca + j * 34 + 10 + DISPLAY_OFF - 34,
+            1 + yloca + k * 34 + 20 - 34, 34, 34, RGB(255,255,255), 0
             );
           }
         }
