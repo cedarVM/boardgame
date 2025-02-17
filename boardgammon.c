@@ -206,12 +206,12 @@ void back(void) {
 void pad(void) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
-    RegionScarf(i * 166 + 1, j * 166 + 1, 166, 166, RGB(255,255,255), 19);
+    RegionScarf(i * 333 + 1, j * 333 + 1, 333, 333, RGB(255,255,255), 19);
     }
   }
   for (int i = 0; i < 4; i++) {
-    RegionScarf(i * 125 + 1, 332, 125, 125, RGB(255, 255, 255), 19);
-    draw_suit(19, i * 125 + 50, 352, (enum suit)i);
+    RegionScarf(i * 250 + 1, 666, 250, 250, RGB(255, 255, 255), 19);
+    draw_suit(19, i * 250 + 116, 773, (enum suit)i);
   }
 
 }
@@ -223,8 +223,11 @@ void pad_ranks(struct player *p, int select[4]) {
     }
   }
 
-  RegionScarf(0, 600, 499, 290, RGB(255,255,255), 19);
-  RegionScarf(0, 600, 990, 290, RGB(255,255,255), 19);
+  RegionScarf(0, 601, 499, 290, RGB(255,255,255), 19); // continue
+  RegionScarf(0, 601, 990, 290, RGB(255,255,255), 19); // dir?
+  RegionScarf(0, 891, 499, 90, RGB(255,255,255), 19); // 
+  RegionScarf(0, 891, 990, 90, RGB(255,255,255), 19); // 
+
 
   for (int i = 0; i < 4; i++) {
     if (select[i] < 13) {
@@ -689,9 +692,9 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
       Flush(0);
 
-        while (c.x > 166 || c.y > 166) {
+        while (c.x > 333 || c.y > 333) {
         Eve(&c, 19);
-          if (c.x > 332 && c.y < 166) {
+          if (c.x > 666 && c.y < 333) {
           players[player_count - 1] = malloc(sizeof(struct player));
           config(players[player_count - 1], temp_player_pos);
           player_count++;
@@ -717,7 +720,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
     Eve(&c, 19);
     RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-    if (c.x > 166 && c.y < 166 && c.x < 332) {
+    if (c.x > 333 && c.y < 333 && c.x < 666) {
       next_pos = temp_player_pos[selected][1] ? temp_player_pos[selected][1] - 1 : temp_player_pos[selected][1];
       collides = 0;
         for (int i = 0; i < 4; i++) {
@@ -726,7 +729,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {
         temp_player_pos[selected][1] = next_pos;
         }
-    } else if (c.x < 166 && c.y > 166 && c.y < 322) {
+    } else if (c.x < 333 && c.y > 333 && c.y < 666) {
       next_pos = temp_player_pos[selected][0] ? temp_player_pos[selected][0] - 1 : temp_player_pos[selected][0];
       collides = 0;
         for (int i = 0; i < 4; i++) {
@@ -735,7 +738,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {
         temp_player_pos[selected][0] = next_pos;
         }
-    } else if (c.x > 322 && c.x < 500 && c.y > 166 && c.y < 322) {
+    } else if (c.x > 666 && c.y > 333 && c.y < 666) {
       next_pos = ( temp_player_pos[selected][0] + 1 ) % 56;
       collides = 0;
         for (int i = 0; i < 4; i++) {
@@ -744,7 +747,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {
         temp_player_pos[selected][0] = next_pos;
         }
-    } else if (c.x > 166 && c.x < 332 && c.y > 166 && c.y < 332) {
+    } else if (c.x > 333 && c.x < 666 && c.y > 333 && c.y < 666) {
       next_pos = ( temp_player_pos[selected][1] + 1 ) % 31;
       collides = 0;
         for (int i = 0; i < 4; i++) {
@@ -753,11 +756,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {
         temp_player_pos[selected][1] = next_pos;
         }
-    } else if (c.y < 166 && c.x > 332 && player_count > 2) {
+    } else if (c.y < 333 && c.x > 666 && player_count > 2) {
       player_count--;
       break;
-    } else if (c.y > 332) {
-      selected = c.x / 125;
+    } else if (c.y > 666) {
+      selected = c.x / 250;
     }
 
   }
@@ -783,7 +786,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
     Eve(&c, 19);
     RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-    if (c.x > 166 && c.y < 166 && c.x < 332) {
+    if (c.x > 333 && c.y < 333 && c.x < 666) {
       next_pos = players[curr_player]->board_loca[1] ? players[curr_player]->board_loca[1] - 1 : 29;
       collides = 0;
         /*for (int i = 0; i < 4; i++) {
@@ -792,7 +795,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {*/
         players[curr_player]->board_loca[1] = next_pos;
         //}
-    } else if (c.x < 166 && c.y > 166 && c.y < 322) {
+    } else if (c.x < 333 && c.y > 333 && c.y < 666) {
       next_pos = players[curr_player]->board_loca[0] ? players[curr_player]->board_loca[0] - 1 : 54;
       collides = 0;
         /*for (int i = 0; i < 4; i++) {
@@ -801,7 +804,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {*/
         players[curr_player]->board_loca[0] = next_pos;
         //}
-    } else if (c.x > 322 && c.x < 500 && c.y > 166 && c.y < 322) {
+    } else if (c.x > 666 && c.y > 333 && c.y < 666) {
       next_pos = ( players[curr_player]->board_loca[0] + 1 ) % 55;
       collides = 0;
         /*for (int i = 0; i < 4; i++) {
@@ -810,7 +813,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {*/
         players[curr_player]->board_loca[0] = next_pos;
         //}
-    } else if (c.x > 166 && c.x < 332 && c.y > 166 && c.y < 332) {
+    } else if (c.x > 333 && c.x < 666 && c.y > 333 && c.y < 666) {
       next_pos = ( players[curr_player]->board_loca[1] + 1 ) % 30;
       collides = 0;
         /*for (int i = 0; i < 4; i++) {
@@ -819,13 +822,13 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (!collides) {*/
         players[curr_player]->board_loca[1] = next_pos;
         //}
-    } else if (c.y < 166 && c.x > 332) {
+    } else if (c.y < 333 && c.x > 666) {
       curr_player++;
     }
 
-  }
+  } // choose board loca
 
-  RegionFill(0, 0, 900, 900, RGB(0,0,0), 19);
+  RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
   Flush(19);
 
   back();
@@ -866,7 +869,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     while (curr_player < player_count) { // per player shot selection
     pad_ranks(players[curr_player], pselect);
     plist(players, player_count);
-    RegionFill(1700, 0, 10, 1080, RGB(0,0,0), 0);
+    RegionFill(1700, 0, 10, 1280, RGB(0,0,0), 0);
     RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0); // curr player indicate
 
       for (int i = 0; i < 10; i++) {
@@ -897,13 +900,23 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     Eve(&c, 19);
     RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
 
-      if (c.y > 600 && c.x < 450) {
+      if (c.y < 800 && c.y > 600 && c.x < 500) {
         for (int i = 0; i < 4; i++) {
         pselect[i] = 13;
         }
       curr_player++;
-      } else if (c.y > 600 && c.x > 450) {
+      } else if (c.y < 800 && c.y > 600 && c.x > 500) {
       view = !view;
+      } else if (c.y > 800 && c.x > 500) {
+      curr_player = (curr_player + 1)%player_count;
+        for (int i = 0; i < 4; i++) {
+        pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+        }
+      } else if (c.y > 800 && c.x < 500) {
+      curr_player = curr_player ? curr_player - 1 : player_count - 1;
+        for (int i = 0; i < 4; i++) {
+        pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+        }
       } else if (c.y < 600) {
       xloca = c.x / 68;
       yloca = c.y / 150;
