@@ -223,6 +223,9 @@ void pad_ranks(struct player *p, int select[4]) {
     }
   }
 
+  RegionScarf(0, 600, 499, 290, RGB(255,255,255), 19);
+  RegionScarf(0, 600, 990, 290, RGB(255,255,255), 19);
+
   for (int i = 0; i < 4; i++) {
     if (select[i] < 13) {
       RegionScarf(select[i] * 68 + 10, i * 150 + 10, 48, 130, RGB(255,255,255), 19);
@@ -805,6 +808,15 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   Flush(19);
 
   back();
+  for (int i = 0; i < player_count; i++) {
+    for (int j = 0; j < 4; j++) {
+      draw_suit(0,
+             10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+             20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+             players[i]->psuits[j]);
+    }
+  }
+
   Flush(0);
 
   int pselect[4] = {13, 13, 13, 13};
@@ -815,9 +827,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   int collisions[player_count * 2]; // stored as tank[i] tank[j] [2] = {i, j}
   int collision_count, icky_collisions; // Things can get pretty bad, actually
 
+  char view;
 
   while (1) { // main game loop
   curr_player = 0;
+  view = 1;
 
     while (curr_player < player_count) { // per player shot selection
     pad_ranks(players[curr_player], pselect);
@@ -825,18 +839,26 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(1700, 0, 10, 1080, RGB(0,0,0), 0);
     RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0);
 
-      for (int i = 0; i < player_count; i++) {
+      for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 4; j++) {
-          draw_suit(0,
-                  10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                  20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                  players[i]->psuits[j]);
-         if (players[i]->lost_cann[j]) {
-          RegionFill(10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+         if (players[curr_player]->lost_cann[j]) {
+          RegionFill(10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
+                   20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
                    34,
                    34,
                    RGB(255,255,255), 0);
+          } else {
+            if (view) {
+            draw_suit(0,
+                    10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
+                    players[curr_player]->psuits[j]);
+            } else {
+            draw_dir(0,
+                    10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
+                    players[curr_player]->directions[j]);
+            }
           }
         }
       }
@@ -845,11 +867,13 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     Eve(&c, 19);
     RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
 
-      if (c.y > 600) {
+      if (c.y > 600 && c.x < 450) {
         for (int i = 0; i < 4; i++) {
         pselect[i] = 13;
         }
       curr_player++;
+      } else if (c.y > 600 && c.x > 450) {
+      view = !view;
       } else if (c.y < 600) {
       xloca = c.x / 68;
       yloca = c.y / 150;
