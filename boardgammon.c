@@ -13,6 +13,41 @@
 *
 */
 
+/*
+ * Update: Feb 17th 2025
+ * Record: first game played amongst six people
+ * Bugs discovered: 
+ *
+ *  1). strictly vertical collisions at 0,0 such that two tanks overlap in two quadrants
+ *  results (possibly and probably) in the offending tank being propelled off the map
+ *
+ *  2). Visual bugs 
+ *  Rectify by drawing tanks not by ordering of [0-player_count] but by tanks with missing
+ *  cannons first and tanks with all cannons second
+ *
+ * Thoughts on main gameplay loop:
+ *  Ultimate concerns:
+ *    1). damage being too severe to keep playing (one cannon gone = feels like half movement is gone)
+ *    2). pacing in terms of board size and number of possible moves a player can make
+ *
+ *  Possible alleviations:
+ *    1). recoil still viable but missing cannons do not fire projectiles(*1)
+ *    2). more stuff could happen per board effectuation (board update/round)
+ * 
+ * ~~?Spreadshot?~~
+ *
+ *   Definite alleviations:
+ *    1). Just throw more cards at it or sum shi-
+ *    2). closing map: implemented by start_x, start_y, end_x, end_y
+ *        start_x++, start_y++, end_x--, end_y-- every 2 rounds
+ *        initial values:
+ *          (start_x, start_y) = (0, 0) // these will be underhead ( loca_z - start_z <= 0 ? end_z - 1 : loca_z - 1 ) 
+ *          (end_x, end_y) = (31, 55)   // these will be mod overhead ( (loca_z = loca_z + 1)%(end_z - 1) )
+ *
+ * (*1): projectiles should have ANIMATION
+ *
+ */
+
 enum suit {H, S, C, D};
 enum rank {ACE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE, TEN, JACK, QUEEN, KING};
 
