@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "xbm/suits.xbm"
 #include "xbm/ranks.xbm"
 #include "xbm/directions.xbm"
@@ -261,7 +262,7 @@ char cond = (dir&1)^(dir>>1);
 
 }
 
-void back(int *dim) { // I **NEVER** want to touch this **EVER** again
+void back(int d, int *dim) { // I **NEVER** want to touch this **EVER** again
   int width, height;
   width =  dim[2] - dim[0];
   height = dim[3] - dim[1];
@@ -280,14 +281,14 @@ void back(int *dim) { // I **NEVER** want to touch this **EVER** again
   y_turn =  which ? max : min;
 
     for (int i = 0; i < min; i++) {
-      RegionScarf(1 + dim[0] * 34 + 10 + DISPLAY_OFF, 1 + dim[1] * 34 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), 0);
-      RegionScarf(10 + DISPLAY_OFF + 1 + (min - i + dim[0]) * 34, 20 + 1 + (min - i + dim[1]) * 34, i * 34, i * 34, RGB(255,255,255), 0);
+      RegionScarf(1 + dim[0] * 34 + 10 + DISPLAY_OFF, 1 + dim[1] * 34 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), d);
+      RegionScarf(10 + DISPLAY_OFF + 1 + (min - i + dim[0]) * 34, 20 + 1 + (min - i + dim[1]) * 34, i * 34, i * 34, RGB(255,255,255), d);
     }
 
   for (int z = 0; z < max/min; z++) {
     for (int i = 0; i < min; i++) {
-      RegionScarf(dim[0] * 34 + (!which) * (z * min) * 34 + x_depth * 34 + 1 + 10 + DISPLAY_OFF, dim[1] * 34 + which * (z * min) * 34 + y_depth * 34 + 1 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), 0);
-      RegionScarf(dim[0] * 34 + !which * (z * min) * 34 + 10 + DISPLAY_OFF + 1 + (min - i + x_depth) * 34, dim[1] * 34 + which * (z * min) * 34 + 20 + 1 + (min - i + y_depth) * 34, i * 34, i * 34, RGB(255,255,255), 0);
+      RegionScarf(dim[0] * 34 + (!which) * (z * min) * 34 + x_depth * 34 + 1 + 10 + DISPLAY_OFF, dim[1] * 34 + which * (z * min) * 34 + y_depth * 34 + 1 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), d);
+      RegionScarf(dim[0] * 34 + !which * (z * min) * 34 + 10 + DISPLAY_OFF + 1 + (min - i + x_depth) * 34, dim[1] * 34 + which * (z * min) * 34 + 20 + 1 + (min - i + y_depth) * 34, i * 34, i * 34, RGB(255,255,255), d);
     }
   }
 
@@ -829,6 +830,59 @@ int xloca, yloca;
 
 int DIM[4] = {0, 0, 56, 31};
 
+
+void *ping(void *input) {
+  void **retrieve = (void**)input;
+  int **cond = (int **)retrieve;
+  struct player **players = (struct player **)cond[1];
+  int *pcount = (int *)cond[2];
+  int *dim = (int *)(cond[3]);
+  XI(1, "", "", 0, 0, 0, 0, 2);
+  back(2, dim);
+
+  // redraw players
+    for (int i = 0; i < *pcount; i++) {
+      for (int z = 0; z < 10; z++) { 
+        for (int j = 0; j < 4; j++) {
+          if (players[i]->lost_cann[j]) {
+          RegionFill(10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                   34,
+                   34,
+                   RGB(255,255,255), 2);
+          Flush(0);
+          } else {
+          draw_suit(2,
+                    10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                    players[i]->psuits[j], 1);
+          }
+        }
+      }
+    }
+
+  while(!cond[0][0]) {
+      for (int j = 0; j < 10; j++) {
+        for (int i = 0; i < *pcount; i++) {
+        RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, players[i]->color, 2);
+        usleep(20000);
+        Flush(2);
+        }
+      }
+      for (int j = 0; j < 10; j++) {
+        for (int i = 0; i < *pcount; i++) {
+        RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, RGB(0,0,0), 2);
+        usleep(20000);
+        Flush(2);
+        }
+      }
+  }
+}
+
+pthread_t animthread;
+void *bundle[4]; // void **
+int killthread;
+
 int main(int argc, char **argv) {
 
 srand(23);
@@ -856,23 +910,6 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   w = 1920 / 56;
   grid = (h + w) / 2;
 
-/*  while (c.txt != 's') {
-  Eve(&c, 19);
-    switch (c.txt) {
-      case 'c':
-        //for (int i = 0; i < 3000; i++) {
-        RegionFill(0, 0, 1920, 1080, RGB(0,0,0), 19);
-        RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-        Flush(0);
-        Flush(19);
-        //}
-      break;
-      default:
-      back();
-      Flush(0);
-    }
-  }*/
-
   int player_count = 0;
 
   struct player *players[12];
@@ -891,7 +928,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
-  back(DIM);
+  back(0, DIM);
   pad();
   Flush(0);
   Flush(19);
@@ -906,7 +943,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     if (validate(temp_player_pos)) {
       if (player_count) {
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back(DIM);
+      back(0, DIM);
 
         for (int i = 0; i < 4; i++) { //suit_count
         draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
@@ -935,7 +972,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         }
 
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back(DIM);
+      back(0, DIM);
       // TO FIX PERSISTENT TANK GRAPHIC BUG
 
       } else {
@@ -1009,7 +1046,9 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       selected = c.x / 250;
     }
 
-  }
+  } // end config
+
+
 
   int curr_player = 0;
 
@@ -1026,7 +1065,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
                   players[i]->psuits[j], 1);
       }
     }
-    back(DIM);
+    back(0, DIM);
     Flush(0);
     Flush(19);
 
@@ -1066,7 +1105,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
   Flush(19);
 
-  back(DIM);
+  back(0, DIM);
   for (int i = 0; i < player_count; i++) {
     for (int j = 0; j < 4; j++) {
       draw_suit(0,
@@ -1101,6 +1140,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   int board_dim[3][4] = {{0, 0, 56, 31}, {0, 0, 0, 0}, {0, 0, 0, 0}};
 
+  bundle[0] = (void *)&killthread;
+  bundle[1] = (void *)players;
+  bundle[2] = (void *)&player_count;
+  bundle[3] = (void *)board_dim;
+
   while (1) { // main game loop ----------------------------------------------------------------------------
   curr_player = 0;
   view = 1;
@@ -1112,7 +1156,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     printf("powerup in: %d\n", power_countdown);
 
     RegionFill(0, 0, WW(0), WH(0), RGB(0,0,0), 0);
-    back(board_dim[0]);
+    back(0, board_dim[0]);
 
     if (!power_countdown) {
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,255,0), 0); // new loca
@@ -1139,6 +1183,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       }
     }
 
+    killthread = 0;
+    pthread_create(&animthread, 0, ping, (void *)bundle);
     while (curr_player != player_count) { // player shot selection
     pad_ranks(players[curr_player], pselect);
     plist(players, player_count);
@@ -1209,7 +1255,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         players[curr_player]->round_shot[yloca][0] = xloca + 1;
       } 
     } // shot selection
-
+    killthread =  1;
+    pthread_join(animthread, 0);
 
 
     prioritize(players, player_count, player_index);
