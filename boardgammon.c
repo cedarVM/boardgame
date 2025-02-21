@@ -5,6 +5,7 @@
 #include "xbm/suits.xbm"
 #include "xbm/ranks.xbm"
 #include "xbm/directions.xbm"
+#include "queue.h"
 
 /*
 * Find ELAN from `xinput` and corresponding ID
@@ -60,6 +61,8 @@ char lost_cann[4];
 int pvect_loca[2];
 int board_loca[2];
 int round_shot[4][2]; // [0] = magnitude; [1] = boolean
+
+long long color;
 };
 
 union meld {
@@ -67,23 +70,53 @@ float j;
 int   i;
 };
 
+void prioritize(struct player **players, int pcount, int *prio_arr) {
+  int magnitudes[pcount];
+  int prioplayer_map[pcount];
+  int insert, j;
+
+  for (int i = 0; i < pcount; i++) {
+  insert = 0;
+    for (j = 0; j < 4; j++) {
+    insert += players[i]->round_shot[j][1] ? players[i]->round_shot[j][0] : 0;
+    }
+
+    if (!i) {
+    j = 0;
+    } else {
+      for (j = i; magnitudes[j - 1] < insert && j > 0; j--) { // insertion sort: will sort in descending order
+      magnitudes[j] = magnitudes[j - 1];
+      prioplayer_map[j] = prioplayer_map[j - 1];
+      }
+    }
+
+    magnitudes[j] = insert;
+    prioplayer_map[j] = i;
+  }
+
+  for (int i = 0; i < pcount; i++) {
+  prio_arr[prioplayer_map[i]] = i;
+  }
+
+}
+
 #define DISPLAY_OFF 1920
 
-void draw_suit(int d, int x, int y, enum suit which) {
+void draw_suit(int d, int x, int y, enum suit which, int scale) { // take color param
 
   switch (which) {
 
     case C:
     for (int i = 0; i < 32; i++) {
       for (int j = 0; j < 32; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( suit0_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit0_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
       }
     }
     break;
     case S:
     for (int i = 0; i < 32; i++) {
       for (int j = 0; j < 32; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( suit1_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit1_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
       }
     }
     break;
@@ -91,14 +124,14 @@ void draw_suit(int d, int x, int y, enum suit which) {
     case H:
      for (int i = 0; i < 32; i++) {
       for (int j = 0; j < 32; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( suit2_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit2_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
       }
     }
     break;
     case D:
      for (int i = 0; i < 32; i++) {
       for (int j = 0; j < 32; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( suit3_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit3_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
       }
     }
     break;
@@ -211,7 +244,7 @@ dir = dir>>1;
 return dir*31 + (dir ? -1 : 1)*i;
 }
 
-void draw_dir(int d, int x, int y, int dir) {
+void draw_dir(int d, int x, int y, int dir, int scale) {
 
 int i_offx, i_offy, offx, offy;
 char cond = (dir&1)^(dir>>1);
@@ -222,20 +255,42 @@ char cond = (dir&1)^(dir>>1);
     i_offy = j;
     offx = cond ? i_offx : i_offy;
     offy = cond ? i_offy : 31 - i_offx;
-    RegionFill(x + offx, y + offy, 1, 1, !( ( dir_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+    RegionFill(x + scale * offx, y + scale * offy, scale, scale, !( ( dir_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
     }
   }
 
 }
 
-void back(void) {
-    for (int i = 0; i < 56; i++) {
-    RegionScarf(10 + DISPLAY_OFF + 1, 20 + 1, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), 0);
-    RegionScarf(10 + DISPLAY_OFF + 1 + (56 - i) * 34, 20 + 1 + (56 - i) * 34, i * 34, i * 34, RGB(255,255,255), 0);
+void back(int *dim) { // I **NEVER** want to touch this **EVER** again
+  int width, height;
+  width =  dim[2] - dim[0];
+  height = dim[3] - dim[1];
+
+  char which = width < height;
+
+  int min, max, depth;
+  min = which ? width : height;
+  max = which ? height : width;
+  depth = max%min;
+
+  int x_depth, y_depth, x_turn, y_turn;
+  x_depth = which ? 0 : depth;
+  y_depth = which ? depth : 0;
+  x_turn =  which ? min : max;
+  y_turn =  which ? max : min;
+
+    for (int i = 0; i < min; i++) {
+      RegionScarf(1 + dim[0] * 34 + 10 + DISPLAY_OFF, 1 + dim[1] * 34 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), 0);
+      RegionScarf(10 + DISPLAY_OFF + 1 + (min - i + dim[0]) * 34, 20 + 1 + (min - i + dim[1]) * 34, i * 34, i * 34, RGB(255,255,255), 0);
     }
 
-  RegionFill(10 + DISPLAY_OFF, 1075, 1920, 20, RGB(0,0,0), 0);
-  RegionFill(WW(0) - 4, 0, 10, 1080, RGB(0,0,0), 0);
+  for (int z = 0; z < max/min; z++) {
+    for (int i = 0; i < min; i++) {
+      RegionScarf(dim[0] * 34 + (!which) * (z * min) * 34 + x_depth * 34 + 1 + 10 + DISPLAY_OFF, dim[1] * 34 + which * (z * min) * 34 + y_depth * 34 + 1 + 20, (i + 1) * 34, (i + 1) * 34, RGB(255,255,255), 0);
+      RegionScarf(dim[0] * 34 + !which * (z * min) * 34 + 10 + DISPLAY_OFF + 1 + (min - i + x_depth) * 34, dim[1] * 34 + which * (z * min) * 34 + 20 + 1 + (min - i + y_depth) * 34, i * 34, i * 34, RGB(255,255,255), 0);
+    }
+  }
+
 }
 
 void cover(int *where) {
@@ -243,17 +298,35 @@ RegionFill(10 + DISPLAY_OFF + 34 * where[0], 20 + 34 * where[1], 34, 34, RGB(0,0
 RegionScarf(10 + DISPLAY_OFF + 34 * where[0] + 1, 20 + 34 * where[1] + 1, 34, 34, RGB(255,255,255), 0);
 }
 
+int dir_map(int x) {
+x+=2;
+return ((x>>2) | x&3);
+}
+
 void pad(void) {
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
     RegionScarf(i * 333 + 1, j * 333 + 1, 333, 333, RGB(255,255,255), 19);
+      if (j == 1 || ((i == 1) && (j==0))) {
+      draw_dir(19, i * 333 + 6, 333 * j + 6, j ? dir_map(i) : j, 10);
+      }
     }
   }
   for (int i = 0; i < 4; i++) {
     RegionScarf(i * 250 + 1, 666, 250, 250, RGB(255, 255, 255), 19);
-    draw_suit(19, i * 250 + 116, 773, (enum suit)i);
+    draw_suit(19, i * 250 + 26, 666 + 26, (enum suit)i, 6);
   }
 
+}
+
+void pad_color(long long color, int range) {
+  for (int i = 0; i < 64; i++) {
+    RegionFill(788, 350 + i * 8, 150, 8, RGB(0, 0, i * 4), 19);
+    for (int j = 0; j < 64; j++) {
+    RegionFill(i * 12, j * 12, 12, 12, RGB(i * 4, j * 4, range), 19);
+    }
+  }
+  RegionFill(788, 20, 150, 300, color, 19);
 }
 
 void pad_ranks(struct player *p, int select[4]) {
@@ -263,42 +336,32 @@ void pad_ranks(struct player *p, int select[4]) {
     }
   }
 
-  RegionScarf(0, 601, 499, 290, RGB(255,255,255), 19); // continue
-  RegionScarf(0, 601, 990, 290, RGB(255,255,255), 19); // dir?
-  RegionScarf(0, 891, 499, 90, RGB(255,255,255), 19); // 
-  RegionScarf(0, 891, 990, 90, RGB(255,255,255), 19); // 
+  RegionScarf(0, 601, 499, 190, RGB(255,255,255), 19); // continue
+  RegionScarf(0, 601, 990, 190, RGB(255,255,255), 19); // dir?
+  RegionScarf(0, 800, 499, 190, RGB(255,255,255), 19); // up 
+  RegionScarf(0, 800, 990, 190, RGB(255,255,255), 19); // down
 
 
   for (int i = 0; i < 4; i++) {
     if (select[i] < 13) {
       RegionScarf(select[i] * 68 + 10, i * 150 + 10, 48, 130, RGB(255,255,255), 19);
     }
-    if (p->lost_cann[i]) {
-    RegionFill(13 * 68 + 33, i * 150 + 58, 34, 34, RGB(255,255,255), 19);
-    } else {
-    draw_dir(19, 13 * 68 + 33, i * 150 + 58, p->directions[i]);
-    }
+
+    draw_dir(19, 13 * 68 + 33, i * 150 + 58, p->directions[i], 1);
   }
 
   for (int i = 0; i < 13; i++) {
     for (int j = 0; j < 4; j++) {
       draw_rank(19, i * 68 + 17, j * 150 + 51, (enum rank)i);
+      draw_suit(19, i * 68, j * 150, p->psuits[j], 1);
 
       if (p->lost_cann[j]) {
-      RegionFill(i * 68, j * 150, 34, 34, RGB(255,255,255), 19);
-      RegionFill(i  *68 + 34, j * 150 + 116, 34, 34, RGB(255,255,255), 19);
+      RegionFill(i * 68 + 34, j * 150 + 116, 34, 34, RGB(255,255,255), 19);
       } else {
-      draw_suit(19, i * 68, j * 150, p->psuits[j]);
-      draw_suit(19, i * 68 + 34, j * 150 + 116, p->psuits[j]);
+      draw_suit(19, i * 68 + 34, j * 150 + 116, p->psuits[j], 1);
       }
-
     }
   }
-
-  //for (int i = 0; i < 4; i++) {
-  //  RegionScarf(i * 125 + 1, 332, 125, 125, RGB(255, 255, 255), 19);
-  //  draw_suit(19, i * 125 + 50, 352, (enum suit)i);
-  //}
 
 }
 
@@ -311,8 +374,8 @@ void plist(struct player **multi, int num) {
       RegionFill(1810 + 34 * (j&1) - 1, 10 + i * 100 + 34 * (j>>1) - 1, 34, 34, RGB(255,255,255), 0);
       RegionFill(1810 + 34 * (j&1) + 5, 10 + i * 100 + 34 * (j>>1) + 5, 23, 23, RGB(0,0,0), 0);
       } else {
-      draw_dir(0, 1720 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), multi[i]->directions[j]);
-      draw_suit(0, 1810 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), (enum suit)multi[i]->psuits[j]);
+      draw_dir(0, 1720 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), multi[i]->directions[j], 1);
+      draw_suit(0, 1810 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), (enum suit)multi[i]->psuits[j], 1);
       }
     }
   }
@@ -322,7 +385,7 @@ int abs(int x) {
 return x < 0 ? -x : x;
 }
 
-int sgn(int x) { // not standard
+int sgn(int x) {
 return x < 0;
 }
 
@@ -403,13 +466,20 @@ int **fire(struct player *p) { // returns int[4][2]
   int *prev = p->pvect_loca;
   char *no_cann = p->lost_cann;
 
-  int **saved_shots = malloc(sizeof(int *) * 4);
+  int **saved_shots = malloc(sizeof(int *) * 4); // free this at some point
   int *landing;
 
-  for (int i = 0; i < 4; i++) {
-    landing = malloc(sizeof(int) * 2);
+  float dx, dy; // for recoil
+  float reduct;
+
+  for (int i = 0; i < 4; i++) { // projectile landings
+    landing = malloc(sizeof(int) * 6);
     landing[0] = loca[0] + (i&1);
     landing[1] = loca[1] + (i>>1);
+    landing[2] = 0;
+    landing[3] = 0;
+    landing[4] = landing[0];
+    landing[5] = landing[1]; // tacked on for animation
     if (shots[i][1] && !no_cann[i]) {
 
       switch (dirs[i]) {
@@ -430,101 +500,97 @@ int **fire(struct player *p) { // returns int[4][2]
       landing[0] = -1;
       landing[1] = -1;
     }
+    landing[2] = (landing[0] + landing[4])/2;
+    landing[3] = (landing[1] + landing[5])/2 - abs(landing[5] - landing[1]);
     saved_shots[i] = landing;
-  }
+  } // projectile landings
 
+  // BEGIN RECOIL
   prev[0] = loca[0]; // for use during animation
   prev[1] = loca[1];
 
+  dx = 0;
+  dy = 0;
+
   for (int i = 0; i < 4; i++) {
-    if (shots[i][1] && !no_cann[i]) {
+    if (shots[i][1]) {
+      reduct = no_cann[i] ? 1.0 : 2.0; // if no cannon, double recoil
       switch (dirs[i]) {
         case 0: // increase y
-        loca[1] = (loca[1] + shots[i][0] / 2)%30;
+        dy += (float)shots[i][0] / reduct;
         break;
         case 1: // decrease x
-        loca[0] = loca[0] - shots[i][0]/2 < 0 ? loca[0] - shots[i][0]/2 + 55 : loca[0] - shots[i][0]/2;
+        dx += -(float)shots[i][0] / reduct;
         break;
         case 2: // increase x
-        loca[0] = (loca[0] + shots[i][0] / 2)%55;
+        dx += (float)shots[i][0] / reduct;
         break;
         case 3: // decrease y
-        loca[1] = loca[1] - shots[i][0]/2 < 0 ? loca[1] - shots[i][0]/2 + 30 : loca[1] - shots[i][0]/2;
+        dy += -(float)shots[i][0] / reduct;
         break;
       }
     }
     shots[i][1] = 0;
   }
 
+  loca[0] = (int)((loca[0] + dx < 0 ? 55 : 0) + loca[0] + dx) % 55; // 55 = 56 - 1
+  loca[1] = (int)((loca[1] + dy < 0 ? 30 : 0) + loca[1] + dy) % 30; // because of players being big
+
   prev[0] = prev[0] - loca[0];
   prev[1] = prev[1] - loca[1];
+  // END RECOIL
 
 return saved_shots;
 
 }
 
-void track_collisions(struct player **p, int *ret, int pcount, int *coll_count, int *minor_collisions) {
-*coll_count = 0;
-*minor_collisions = 0;
-
+void track_fix_collisions(struct player **p, int pcount, struct queue *q, int *priority) {
+// TODO: set prev loca to curr loca
+char use_quad;
+int *collision;
 int mag_i, mag_j;
+int refer, offend;
 int x_diff, y_diff;
+int x_shift, y_shift;
+int coll_count, minor_collisions, major_collisions;
+int ref_quad, off_quad;
+
+struct priority_queue collisions;
+collisions.size = 0;
+collisions.data = malloc(sizeof(int *) * pcount);
+collisions.prio = malloc(sizeof(int) * pcount);
 
   for (int i = 0; i < pcount - 1; i++) {
     for (int j = i + 1; j < pcount; j++) {
       x_diff = abs(p[i]->board_loca[0] - p[j]->board_loca[0]);
       y_diff = abs(p[i]->board_loca[1] - p[j]->board_loca[1]);
-
-      if (x_diff < 2 && y_diff < 2) {
       mag_i = abs(p[i]->pvect_loca[0]) + abs(p[i]->pvect_loca[1]); // no square root needed
       mag_j = abs(p[j]->pvect_loca[0]) + abs(p[j]->pvect_loca[1]);
-      ret[(*coll_count) * 2    ] = mag_i < mag_j ? i : j; // reference frame
-      ret[(*coll_count) * 2 + 1] = mag_i < mag_j ? j : i; // offending collider that will be corrected
-      (*coll_count)++;
-      printf("collision found at permutation: (%d, %d)\n", i, j);
-        if (x_diff==1 && y_diff==1) {
-        (*minor_collisions)++;
-        }
+
+      refer  = mag_i < mag_j ? i : j;
+      offend = mag_i < mag_j ? j : i;
+
+      if (x_diff < 2 && y_diff < 2) {
+      collision = malloc(sizeof(int) * 4); // [2]&[3] unused for later
+      collision[0] = refer;
+      collision[1] = offend;
+      insert(&collisions, priority[offend], collision);
       }
     }
   }
-  printf("total tracked collisions: %d\nminor collisions: %d\n", *coll_count, *minor_collisions);
-}
 
-void fix_collisions(struct player **p, int *collisions, int pcount, int num_collisions) {
-  int refer, offend;
-  int x_diff, y_diff;
-  int off_quad, ref_quad;
-  int x_shift, y_shift;
-
-  char *off_cann, *ref_cann;
-  int *off_dir, *ref_dir;
-  enum suit *off_suit, *ref_suit;
-
-  int tmp_dir, tmp_can;
-  enum suit tmp_suit;
-
-  char use_quad;
-
-  printf("collisions to be fixed: %d\n", num_collisions);
-
-  for (int i = 0; i < num_collisions; i++) {
-  // investigate the nine cases of p[ref] <> p[offend]
-  refer  = collisions[i * 2    ];
-  offend = collisions[i * 2 + 1];
+  while (collisions.size) { // investigate the nine cases of p[ref] <> p[offend]
+  collision = top(&collisions);
+  refer  = collision[0];
+  offend = collision[1];
   x_diff = p[offend]->board_loca[0] - p[refer]->board_loca[0];
   y_diff = p[offend]->board_loca[1] - p[refer]->board_loca[1];
 
-
-  off_cann = p[offend]->lost_cann;
-  ref_cann = p[refer]->lost_cann;
-  off_dir  = p[offend]->directions;
-  ref_dir  = p[refer]->directions;
-  off_suit = p[offend]->psuits;
-  ref_suit = p[refer]->psuits;
-
   x_shift = boil(p[offend]->pvect_loca[0]) * -1;
   y_shift = boil(p[offend]->pvect_loca[1]) * -1;
+
+  p[offend]->pvect_loca[0] = p[offend]->board_loca[0];
+  p[offend]->pvect_loca[1] = p[offend]->board_loca[1];
 
   use_quad = 0;
 
@@ -582,29 +648,81 @@ void fix_collisions(struct player **p, int *collisions, int pcount, int num_coll
     printf("We fixed it previously!\n");
     }
 
-    if (use_quad) { // we have performed a fix and would like to augment cannons
-    printf("ref: %d, off: %d\n", ref_quad, off_quad);
-      if (!off_cann[off_quad] && !ref_cann[ref_quad]) { // destroy both cannons
-      off_cann[off_quad] = 1;
-      ref_cann[ref_quad] = 1;
-      } else { // exchange
-      tmp_can = off_cann[off_quad];
-      off_cann[off_quad] = ref_cann[ref_quad]; // trade cannon state
-      ref_cann[ref_quad] = tmp_can;
+    p[offend]->pvect_loca[0] = p[offend]->pvect_loca[0] - p[offend]->board_loca[0];
+    p[offend]->pvect_loca[1] = p[offend]->pvect_loca[1] - p[offend]->board_loca[1];
 
-      tmp_dir = off_dir[off_quad];
-      off_dir[off_quad]  = ref_dir[ref_quad]; // trade cannon direction
-      ref_dir[ref_quad]  = tmp_dir;
+    collision[2] = ref_quad;
+    collision[3] = off_quad;
 
-      tmp_suit = off_suit[off_quad];
-      off_suit[off_quad] = ref_suit[ref_quad]; // trade cannon suit
-      ref_suit[ref_quad] = tmp_suit;
-      }
+    if (use_quad && !contains(q, collision)) {
+    enqueue(q, collision);
+    } else {
+    free(collision);
     }
+  } // end collision inspection
+
+}
+
+void trade(struct player **p, struct queue *q) {
+int *trade_cond;
+int ref_quad, off_quad, refer, offend;
+
+char *ref_cann, *off_cann;
+int *ref_dir, *off_dir;
+enum suit *ref_suit, *off_suit;
+
+int tmp_dir, tmp_can;
+enum suit tmp_suit;
+
+  while (qsize(q)) {
+
+  trade_cond = dequeue(q);
+
+    printf("collision looks like:\n");
+
+    printf("%d %d %d %d\n", trade_cond[0], trade_cond[1], trade_cond[2], trade_cond[3]);
+
+  refer = trade_cond[0];
+  offend = trade_cond[1];
+  ref_quad = trade_cond[2];
+  off_quad = trade_cond[3];
+
+  ref_cann = p[refer]->lost_cann;
+  off_cann = p[offend]->lost_cann;
+  ref_dir  = p[refer]->directions;
+  off_dir  = p[offend]->directions;
+  ref_suit = p[refer]->psuits;
+  off_suit = p[offend]->psuits;
+
+    if (!off_cann[off_quad] && !ref_cann[ref_quad]) { // destroy both cannons
+    off_cann[off_quad] = 1;
+    ref_cann[ref_quad] = 1;
+    } else { // exchange
+    tmp_can = off_cann[off_quad];
+    off_cann[off_quad] = ref_cann[ref_quad]; // trade cannon state
+    ref_cann[ref_quad] = tmp_can;
+
+    tmp_dir = off_dir[off_quad];
+    off_dir[off_quad]  = ref_dir[ref_quad]; // trade cannon direction
+    ref_dir[ref_quad]  = tmp_dir;
+
+    tmp_suit = off_suit[off_quad];
+    off_suit[off_quad] = ref_suit[ref_quad]; // trade cannon suit
+    ref_suit[ref_quad] = tmp_suit;
+    }
+  }
+
+}
+
+void reset_pvect(struct player **p, int pcount) {
+  for (int i = 0; i < pcount; i++) {
+  p[i]->pvect_loca[0] = 0;
+  p[i]->pvect_loca[1] = 0;
   }
 }
 
-void config(struct player *p, int coords[4][2]) {
+void config(struct player *p, int coords[4][2], long long scolor) {
+  p->color = scolor;
   enum suit *pos_to_suit = p->psuits;
   int *dir = p->directions;
   int *loca = p->board_loca;
@@ -645,19 +763,71 @@ int power_cycle(struct player **p, int pcount, int *pair, int down) {
 
   for (int i = 0; i < pcount; i++) {
     where = intersect(p[i], pair);
-    if (where != 4) {
+    if (where != 4 && !down) {
       found = 1;
       for (int j = 0; j < 4; j++) {
       p[i]->lost_cann[j] = 0;
       }
     }
   }
-  if (found) {
+  if (found) { // check for intersect
   pair[0] = abs(rand()%56);
   pair[1] = abs(rand()%31);
   }
 return found ? 4 + (rand()&7) : down; // stored in main game loop as countdown till next powerup
 }
+
+void animate(struct player **players, int player_count) {
+int xloca, yloca;
+
+  for (float t = 1.0; t >= 0; t -= 0.01) {   // animate deltas
+    for (int i = 0; i < player_count; i++) {
+      xloca = (t + 0.01) * (34 * players[i]->pvect_loca[0]) + players[i]->board_loca[0] * 34;
+      yloca = (t + 0.01) * (34 * players[i]->pvect_loca[1]) + players[i]->board_loca[1] * 34;
+      xloca = 34 * (xloca / 34);
+      yloca = 34 * (yloca / 34); // calculate animation frame starting coord
+
+      RegionFill(
+      xloca + 10 + DISPLAY_OFF - 34,
+      yloca + 20 - 34, 136, 136, RGB(0,0,0), 0
+      );
+
+      for (int j = 0; j < 4; j++) { // TODO: replace with back(custom) once its ready
+        for (int k = 0; k < 4; k++) {
+          RegionScarf(
+          1 + xloca + j * 34 + 10 + DISPLAY_OFF - 34,
+          1 + yloca + k * 34 + 20 - 34, 34, 34, RGB(255,255,255), 0
+          );
+        }
+      }
+
+      RegionScarf(8 + 10 + DISPLAY_OFF + 34 * (players[i]->pvect_loca[0] + players[i]->board_loca[0]),
+                  8 + 20 + 34 * (players[i]->pvect_loca[1] + players[i]->board_loca[1]), 53, 53, players[i]->color, 0); // previous loca
+
+        // finally draw players
+      for (int k = 0; k < 4; k++) {
+        for (int j = 0; j < 4; j++) {
+          if (players[i]->lost_cann[j]) {
+              RegionFill(
+                   t * (34 * players[i]->pvect_loca[0]) + 10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                   t * (34 * players[i]->pvect_loca[1]) + 20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                   34,
+                   34,
+                   RGB(255,255,255), 0);
+          } else {
+              draw_suit(0,
+                   t * (34 * players[i]->pvect_loca[0]) + 10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                   t * (34 * players[i]->pvect_loca[1]) + 20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                   players[i]->psuits[j], 1);
+          }
+        }
+      }
+    }
+  Flush(0);
+  } // animate deltas
+}
+
+int DIM[4] = {0, 0, 56, 31};
 
 int main(int argc, char **argv) {
 
@@ -721,38 +891,52 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
-  back();
+  back(DIM);
   pad();
   Flush(0);
   Flush(19);
 
+  long long scolor = 255;
+  int scolor_range = 0;
+
   while (1) { // player chooses tank config
-  pad();
+    RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
+    pad();
 
     if (validate(temp_player_pos)) {
       if (player_count) {
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back();
+      back(DIM);
 
         for (int i = 0; i < 4; i++) { //suit_count
-        draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i);
+        draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
         }
 
       Flush(0);
 
-        while (c.x > 333 || c.y > 333) {
+        RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
+        RegionScarf(768, 0, 200, 333, RGB(255,255,255), 19);
+        RegionScarf(768, 333, 200, 600, RGB(255,255,255), 19);
+
+        while (c.x > 333 || c.y < 768) {
+        pad_color(scolor, scolor_range);
+        Flush(19);
         Eve(&c, 19);
-          if (c.x > 666 && c.y < 333) {
+          if (c.x > 768 && c.y < 333) {
           players[player_count - 1] = malloc(sizeof(struct player));
-          config(players[player_count - 1], temp_player_pos);
+          config(players[player_count - 1], temp_player_pos, scolor);
           player_count++;
           break;
+          } else if (c.x < 768 && c.y < 768) {
+          scolor = RGB(c.x/3, c.y/3, scolor_range);
+          } else if (c.x > 768 && c.y > 333 && c.y < 768) {
+          scolor_range = ( c.y - 333 )/ 2;
           }
         }
 
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back();
-      Flush(0);
+      back(DIM);
+      // TO FIX PERSISTENT TANK GRAPHIC BUG
 
       } else {
         player_count++;
@@ -760,10 +944,13 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       rand_populate(temp_player_pos);
     }
 
+    RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
+    pad();
+
     plist(players, player_count - 1);
 
     for (int i = 0; i < 4; i++) {
-    draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i);
+    draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
     }
 
 // back();
@@ -836,10 +1023,10 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         draw_suit(0,
                   10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                  players[i]->psuits[j]);
+                  players[i]->psuits[j], 1);
       }
     }
-    back();
+    back(DIM);
     Flush(0);
     Flush(19);
 
@@ -847,38 +1034,27 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
     if (c.x > 333 && c.y < 333 && c.x < 666) {
       next_pos = players[curr_player]->board_loca[1] ? players[curr_player]->board_loca[1] - 1 : 29;
+      // TODO: ADD track_collisions(); here
       collides = 0;
-        /*for (int i = 0; i < 4; i++) {
-        collides += next_pos == temp_player_pos[i][1] && temp_player_pos[selected][0] == temp_player_pos[i][0];
-        }
-        if (!collides) {*/
+        //if (!collides) {
         players[curr_player]->board_loca[1] = next_pos;
         //}
     } else if (c.x < 333 && c.y > 333 && c.y < 666) {
       next_pos = players[curr_player]->board_loca[0] ? players[curr_player]->board_loca[0] - 1 : 54;
       collides = 0;
-        /*for (int i = 0; i < 4; i++) {
-        collides += next_pos == temp_player_pos[i][0] && temp_player_pos[selected][1] == temp_player_pos[i][1];
-        }
-        if (!collides) {*/
+        //if (!collides) {
         players[curr_player]->board_loca[0] = next_pos;
         //}
     } else if (c.x > 666 && c.y > 333 && c.y < 666) {
       next_pos = ( players[curr_player]->board_loca[0] + 1 ) % 55;
       collides = 0;
-        /*for (int i = 0; i < 4; i++) {
-        collides += next_pos == temp_player_pos[i][0] && temp_player_pos[selected][1] == temp_player_pos[i][1];
-        }
-        if (!collides) {*/
+        //if (!collides) {
         players[curr_player]->board_loca[0] = next_pos;
         //}
     } else if (c.x > 333 && c.x < 666 && c.y > 333 && c.y < 666) {
       next_pos = ( players[curr_player]->board_loca[1] + 1 ) % 30;
       collides = 0;
-        /*for (int i = 0; i < 4; i++) {
-        collides += next_pos == temp_player_pos[i][1] && temp_player_pos[selected][0] == temp_player_pos[i][0];
-        }
-        if (!collides) {*/
+        //if (!collides) {
         players[curr_player]->board_loca[1] = next_pos;
         //}
     } else if (c.y < 333 && c.x > 666) {
@@ -890,36 +1066,53 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
   Flush(19);
 
-  back();
+  back(DIM);
   for (int i = 0; i < player_count; i++) {
     for (int j = 0; j < 4; j++) {
       draw_suit(0,
              10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
              20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-             players[i]->psuits[j]);
+             players[i]->psuits[j], 1);
     }
   }
 
   Flush(0);
+
+  int player_index[player_count];
 
   int pselect[4] = {13, 13, 13, 13};
   int **shot_store[player_count];
   int xloca, yloca;
   int where;
 
-  int collisions[player_count * 2]; // stored as tank[i] tank[j] [2] = {i, j}
-  int collision_count, icky_collisions; // Things can get pretty bad, actually
+  int *who[player_count * player_count];
+  struct queue collisions;
+  collisions.capacity = player_count * player_count; // TODO: fix queue and add contains routine
+  collisions.rear = 0;
+  collisions.front = 0;
+  collisions.data = who;
+
+  int prev_coll, coll;
 
   char view;
 
   int power_countdown = 8;
   int power_pair[2] = {27, 15};
 
-  while (1) { // main game loop
+  int board_dim[3][4] = {{0, 0, 56, 31}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+
+  while (1) { // main game loop ----------------------------------------------------------------------------
   curr_player = 0;
   view = 1;
 
+    if (1) {
+    ;
+    } // board too small? kill everyone!
+
     printf("powerup in: %d\n", power_countdown);
+
+    RegionFill(0, 0, WW(0), WH(0), RGB(0,0,0), 0);
+    back(board_dim[0]);
 
     if (!power_countdown) {
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,255,0), 0); // new loca
@@ -936,12 +1129,17 @@ XI(1, "", "", 0, 0, 0, 0, 0);
                    34,
                    RGB(255,255,255), 0);
           Flush(0);
+          } else {
+          draw_suit(0,
+                    10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                    players[i]->psuits[j], 1);
           }
         }
       }
     }
 
-    while (curr_player < player_count) { // player shot selection
+    while (curr_player != player_count) { // player shot selection
     pad_ranks(players[curr_player], pselect);
     plist(players, player_count);
     RegionFill(1700, 0, 10, 1280, RGB(0,0,0), 0);
@@ -960,12 +1158,12 @@ XI(1, "", "", 0, 0, 0, 0, 0);
             draw_suit(0,
                     10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
                     20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
-                    players[curr_player]->psuits[j]);
+                    players[curr_player]->psuits[j],  1);
             } else {
             draw_dir(0,
                     10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
                     20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
-                    players[curr_player]->directions[j]);
+                    players[curr_player]->directions[j], 1);
             }
           }
         }
@@ -976,10 +1174,16 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
 
       if (c.y < 800 && c.y > 600 && c.x < 500) {
-        for (int i = 0; i < 4; i++) {
-        pselect[i] = 13;
-        }
       curr_player++;
+        if (curr_player != player_count) {
+          for (int i = 0; i < 4; i++) {
+          pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+          }
+        } else {
+          for (int i = 0; i < 4; i++) {
+          pselect[i] = 13;
+          }
+        }
       } else if (c.y < 800 && c.y > 600 && c.x > 500) {
       view = !view;
       } else if (c.y > 800 && c.x > 500) {
@@ -1006,75 +1210,61 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       } 
     } // shot selection
 
+
+
+    prioritize(players, player_count, player_index);
+
     // Begin logic for processing kills and whatnot
 
     for (int i = 0; i < player_count; i++) {
       shot_store[i] = fire(players[i]);
     }
 
-    // collision handling
-    track_collisions(players, collisions, player_count, &collision_count, &icky_collisions);
-    icky_collisions = collision_count; // count all collisions as major going into loop
+    animate(players, player_count);
 
-    while (icky_collisions) { // while major collisions are nonzero
-      fix_collisions(players, collisions, player_count, collision_count);
-      track_collisions(players, collisions, player_count, &collision_count, &icky_collisions);
-      icky_collisions = collision_count - icky_collisions; // icky_collisions was prev minor_collisions
+    // collision handling
+    prev_coll = 0;
+    track_fix_collisions(players, player_count, &collisions, player_index);
+    coll = qsize(&collisions);
+    reset_pvect(players, player_count);
+    animate(players, player_count);
+
+    while (coll != prev_coll) { // no new collisions
+      prev_coll = coll;
+      track_fix_collisions(players, player_count, &collisions, player_index);
+      reset_pvect(players, player_count);
+      animate(players, player_count);
+      coll = qsize(&collisions);
+    } // TODO: intermediate animations
+
+
+    trade(players, &collisions); // no player index: order is based on queue
+
+    printf("after trade:\n");
+    for (int z = 0; z < player_count; z++) {
+    printf("%d %d %d %d\n", players[z]->lost_cann[0], players[z]->lost_cann[1], players[z]->lost_cann[2], players[z]->lost_cann[3]);
     }
 
     if (!power_countdown) {
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,0,0), 0); // erase old loca
     Flush(0);
-    power_pair[0] = (power_pair[0] + 1)%56;
+    power_pair[0] = (power_pair[0] + 1)%(board_dim[0][2] + 1);
     } else {
     power_countdown--;
     }
 
+    board_dim[0][0]++;
+    board_dim[0][1]++;
+    board_dim[0][2]--;
+    board_dim[0][3]--;
+
     power_countdown = power_cycle(players, player_count, power_pair, power_countdown);
 
-    back(); // this will not be used aggresively so as to not hurt my FUCKING EYES
-    for (float t = 1.0; t >= 0; t -= 0.01) {   // animate deltas
-      for (int i = 0; i < player_count; i++) {
-        xloca = (t + 0.01) * (34 * players[i]->pvect_loca[0]) + players[i]->board_loca[0] * 34;
-        yloca = (t + 0.01) * (34 * players[i]->pvect_loca[1]) + players[i]->board_loca[1] * 34;
-        xloca = 34 * (xloca / 34);
-        yloca = 34 * (yloca / 34); // calculate animation frame starting coord
+    // for all players store their loca into prev
+    // adjust based on borders
+    // do fix if collision number has increased
 
-        RegionFill(
-        xloca + 10 + DISPLAY_OFF - 34,
-        yloca + 20 - 34, 136, 136, RGB(0,0,0), 0
-        );
-
-        for (int j = 0; j < 4; j++) { // compensatory grid redraw
-          for (int k = 0; k < 4; k++) { // Warning: this will redraw the torus boundaries
-            RegionScarf(
-            1 + xloca + j * 34 + 10 + DISPLAY_OFF - 34,
-            1 + yloca + k * 34 + 20 - 34, 34, 34, RGB(255,255,255), 0
-            );
-          }
-        }
-
-        // finally draw players
-        for (int k = 0; k < 4; k++) {
-          for (int j = 0; j < 4; j++) {
-            if (players[i]->lost_cann[j]) {
-              RegionFill(
-                   t * (34 * players[i]->pvect_loca[0]) + 10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                   t * (34 * players[i]->pvect_loca[1]) + 20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                   34,
-                   34,
-                   RGB(255,255,255), 0);
-            } else {
-              draw_suit(0,
-                   t * (34 * players[i]->pvect_loca[0]) + 10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                   t * (34 * players[i]->pvect_loca[1]) + 20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                   players[i]->psuits[j]);
-            }
-          }
-        }
-      }
-    Flush(0);
-    } // animate deltas
+    // borders should shrink before shots land or are even animated
 
     // This is stupid and a more efficient way definitely exists 
     for (int i = 0; i < player_count; i++) {
@@ -1089,6 +1279,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         }
       }
     }
+
+// animate projectiles
 
   } // main game loop
 } // int main
