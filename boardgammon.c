@@ -66,10 +66,20 @@ int round_shot[4][2]; // [0] = magnitude; [1] = boolean
 long long color;
 };
 
-union meld {
-float j;
-int   i;
+struct board_state {
+int dimensions[4];
+int curr_player;
+int player_total;
+int anim_speed;
+char kill_anim_thread;
 };
+
+void shrink_board(struct board_state *board) {
+board->dimensions[0]++;
+board->dimensions[1]++;
+board->dimensions[2]--;
+board->dimensions[3]--;
+}
 
 void prioritize(struct player **players, int pcount, int *prio_arr) {
   int magnitudes[pcount];
@@ -369,7 +379,7 @@ void pad_ranks(struct player *p, int select[4]) {
 
 void plist(struct player **multi, int num) {
   for (int i = 0; i < num; i++) {
-  RegionScarf(1800, 1 + i * 100, 100, 100, RGB(255,255,255), 0);
+  RegionScarf(1800, 1 + i * 100, 100, 100, multi[i]->color, 0);
     for (int j = 0; j < 4; j++) {
       if (multi[i]->lost_cann[j]) {
       RegionFill(1810 + 34 * (j&1) - 1, 10 + i * 100 + 34 * (j>>1) - 1, 34, 34, RGB(255,255,255), 0);
@@ -474,13 +484,11 @@ int **fire(struct player *p) { // returns int[4][2]
   float reduct;
 
   for (int i = 0; i < 4; i++) { // projectile landings
-    landing = malloc(sizeof(int) * 6);
+    landing = malloc(sizeof(int) * 4);
     landing[0] = loca[0] + (i&1);
     landing[1] = loca[1] + (i>>1);
-    landing[2] = 0;
-    landing[3] = 0;
-    landing[4] = landing[0];
-    landing[5] = landing[1]; // tacked on for animation
+    landing[2] = landing[0];
+    landing[3] = landing[1]; // tacked on for animation
     if (shots[i][1] && !no_cann[i]) {
 
       switch (dirs[i]) {
@@ -542,6 +550,10 @@ int **fire(struct player *p) { // returns int[4][2]
   // END RECOIL
 
 return saved_shots;
+
+}
+
+void set_rocket_paths() {
 
 }
 
@@ -828,91 +840,57 @@ int xloca, yloca;
   } // animate deltas
 }
 
-int DIM[4] = {0, 0, 56, 31};
-
-
 void *ping(void *input) {
-  void **retrieve = (void**)input;
-  int **cond = (int **)retrieve;
-  struct player **players = (struct player **)cond[1];
-  int *pcount = (int *)cond[2];
-  int *dim = (int *)(cond[3]);
+  int **retrieve = (int **)input;
+  struct board_state *state = (struct board_state *)retrieve[0];
+  struct player **players = (struct player **)retrieve[1];
+  int selected;
+  int backing[4];
   XI(1, "", "", 0, 0, 0, 0, 2);
-  back(2, dim);
 
-  // redraw players
-    for (int i = 0; i < *pcount; i++) {
-      for (int z = 0; z < 10; z++) { 
-        for (int j = 0; j < 4; j++) {
-          if (players[i]->lost_cann[j]) {
-          RegionFill(10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                   34,
-                   34,
-                   RGB(255,255,255), 2);
-          Flush(0);
-          } else {
-          draw_suit(2,
-                    10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
-                    20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                    players[i]->psuits[j], 1);
-          }
-        }
+  while(!state->kill_anim_thread) {
+  selected = state->curr_player;
+    for (int j = 0; j < 10; j++) {
+      for (int i = 0; i < state->player_total; i++) {
+      RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, i==selected ? players[i]->color : RGB(0,0,0), 2);
+      usleep(18000 - (state->player_total - 2) * 2500);
+      Flush(2);
       }
     }
-
-  while(!cond[0][0]) {
-      for (int j = 0; j < 10; j++) {
-        for (int i = 0; i < *pcount; i++) {
-        RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, players[i]->color, 2);
-        usleep(20000);
-        Flush(2);
-        }
+    for (int j = 0; j < 10; j++) {
+      for (int i = 0; i < state->player_total; i++) {
+      backing[0] = players[i]->board_loca[0] - 1;
+      backing[1] = players[i]->board_loca[1] - 1;
+      backing[2] = backing[0] + 4;
+      backing[3] = backing[1] + 4;
+      back(2, state->dimensions);
+      RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, i==selected ? RGB(0,0,0) : players[i]->color, 2);
+      usleep(18000 - (state->player_total - 2) * 2500);
+      Flush(2);
       }
-      for (int j = 0; j < 10; j++) {
-        for (int i = 0; i < *pcount; i++) {
-        RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, RGB(0,0,0), 2);
-        usleep(20000);
-        Flush(2);
-        }
-      }
+    }
   }
 }
 
 pthread_t animthread;
-void *bundle[4]; // void **
-int killthread;
+void *bundle[2]; // void **
 
 int main(int argc, char **argv) {
 
 srand(23);
-
-union meld nan, inf, reg;
-
-inf.j = 1.0 / 0.0;
-nan.j = inf.j / inf.j;
-
-reg.i = inf.i | (~nan.i)<<1 | 1;
-
-printf("%d\n", reg.i);
-
 struct cache c;
-
 XI(0, "", "", 1000, 1000, 0, 0, 19);
 XI(1, "", "", 0, 0, 0, 0, 0);
 
-
-
-// MAGIC IS 31x56
+// MAGIC IS 56x31 WITH 34x34 tiles 
 
   int h, w, grid;
   h = 1080 / 31;
   w = 1920 / 56;
-  grid = (h + w) / 2;
-
-  int player_count = 0;
+  grid = (h + w) / 2; // check
 
   struct player *players[12];
+  struct board_state board = {{0, 0, 56, 31}, 0, 0, 2500, 0};
 
   int next_pos;
 
@@ -922,13 +900,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   char collides;
 
-  char mode = 1;
-
   Eve(&c, 19);
 
   RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
-  back(0, DIM);
+  back(0, board.dimensions);
   pad();
   Flush(0);
   Flush(19);
@@ -941,9 +917,9 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     pad();
 
     if (validate(temp_player_pos)) {
-      if (player_count) {
+      if (board.player_total) {
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back(0, DIM);
+      back(0, board.dimensions);
 
         for (int i = 0; i < 4; i++) { //suit_count
         draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
@@ -951,18 +927,18 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
       Flush(0);
 
-        RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
-        RegionScarf(768, 0, 200, 333, RGB(255,255,255), 19);
-        RegionScarf(768, 333, 200, 600, RGB(255,255,255), 19);
+      RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
+      RegionScarf(768, 0, 200, 333, RGB(255,255,255), 19);
+      RegionScarf(768, 333, 200, 600, RGB(255,255,255), 19);
 
         while (c.x > 333 || c.y < 768) {
         pad_color(scolor, scolor_range);
         Flush(19);
         Eve(&c, 19);
           if (c.x > 768 && c.y < 333) {
-          players[player_count - 1] = malloc(sizeof(struct player));
-          config(players[player_count - 1], temp_player_pos, scolor);
-          player_count++;
+          players[board.player_total - 1] = malloc(sizeof(struct player));
+          config(players[board.player_total - 1], temp_player_pos, scolor);
+          board.player_total++;
           break;
           } else if (c.x < 768 && c.y < 768) {
           scolor = RGB(c.x/3, c.y/3, scolor_range);
@@ -972,11 +948,11 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         }
 
       RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
-      back(0, DIM);
+      back(0, board.dimensions);
       // TO FIX PERSISTENT TANK GRAPHIC BUG
 
       } else {
-        player_count++;
+        board.player_total++;
       }
       rand_populate(temp_player_pos);
     }
@@ -984,7 +960,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
     pad();
 
-    plist(players, player_count - 1);
+    plist(players, board.player_total - 1);
 
     for (int i = 0; i < 4; i++) {
     draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
@@ -1039,8 +1015,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         cover(temp_player_pos[selected]);
         temp_player_pos[selected][1] = next_pos;
         }
-    } else if (c.y < 333 && c.x > 666 && player_count > 2) {
-      player_count--;
+    } else if (c.y < 333 && c.x > 666 && board.player_total > 2) {
+      board.player_total--;
       break;
     } else if (c.y > 666) {
       selected = c.x / 250;
@@ -1049,15 +1025,12 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   } // end config
 
 
-
-  int curr_player = 0;
-
-  while(curr_player != player_count) { // player chooses board loca
+  while(board.curr_player != board.player_total) { // player chooses board loca
     pad();
-    plist(players, player_count);
+    plist(players, board.player_total);
     RegionFill(1700, 0, 10, 1080, RGB(0,0,0), 0);
-    RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0);
-    for (int i = 0; i < curr_player + 1; i++) {
+    RegionFill(1700, board.curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0);
+    for (int i = 0; i < board.curr_player + 1; i++) {
       for (int j = 0; j < 4; j++) {
         draw_suit(0,
                   10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
@@ -1065,39 +1038,39 @@ XI(1, "", "", 0, 0, 0, 0, 0);
                   players[i]->psuits[j], 1);
       }
     }
-    back(0, DIM);
+    back(0, board.dimensions);
     Flush(0);
     Flush(19);
 
     Eve(&c, 19);
     RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
     if (c.x > 333 && c.y < 333 && c.x < 666) {
-      next_pos = players[curr_player]->board_loca[1] ? players[curr_player]->board_loca[1] - 1 : 29;
+      next_pos = players[board.curr_player]->board_loca[1] ? players[board.curr_player]->board_loca[1] - 1 : 29;
       // TODO: ADD track_collisions(); here
       collides = 0;
         //if (!collides) {
-        players[curr_player]->board_loca[1] = next_pos;
+        players[board.curr_player]->board_loca[1] = next_pos;
         //}
     } else if (c.x < 333 && c.y > 333 && c.y < 666) {
-      next_pos = players[curr_player]->board_loca[0] ? players[curr_player]->board_loca[0] - 1 : 54;
+      next_pos = players[board.curr_player]->board_loca[0] ? players[board.curr_player]->board_loca[0] - 1 : 54;
       collides = 0;
         //if (!collides) {
-        players[curr_player]->board_loca[0] = next_pos;
+        players[board.curr_player]->board_loca[0] = next_pos;
         //}
     } else if (c.x > 666 && c.y > 333 && c.y < 666) {
-      next_pos = ( players[curr_player]->board_loca[0] + 1 ) % 55;
+      next_pos = ( players[board.curr_player]->board_loca[0] + 1 ) % 55;
       collides = 0;
         //if (!collides) {
-        players[curr_player]->board_loca[0] = next_pos;
+        players[board.curr_player]->board_loca[0] = next_pos;
         //}
     } else if (c.x > 333 && c.x < 666 && c.y > 333 && c.y < 666) {
-      next_pos = ( players[curr_player]->board_loca[1] + 1 ) % 30;
+      next_pos = ( players[board.curr_player]->board_loca[1] + 1 ) % 30;
       collides = 0;
         //if (!collides) {
-        players[curr_player]->board_loca[1] = next_pos;
+        players[board.curr_player]->board_loca[1] = next_pos;
         //}
     } else if (c.y < 333 && c.x > 666) {
-      curr_player++;
+      board.curr_player++;
     }
 
   } // choose board loca
@@ -1105,8 +1078,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
   Flush(19);
 
-  back(0, DIM);
-  for (int i = 0; i < player_count; i++) {
+  back(0, board.dimensions);
+  for (int i = 0; i < board.player_total; i++) {
     for (int j = 0; j < 4; j++) {
       draw_suit(0,
              10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
@@ -1117,16 +1090,18 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   Flush(0);
 
-  int player_index[player_count];
+  int player_index[board.player_total];
 
   int pselect[4] = {13, 13, 13, 13};
-  int **shot_store[player_count];
+  int **shot_store[board.player_total];
+  int rocket_x_path[board.player_total + 1];
+  int rocket_y_path[board.player_total + 1];
   int xloca, yloca;
   int where;
 
-  int *who[player_count * player_count];
+  int *who[board.player_total * board.player_total];
   struct queue collisions;
-  collisions.capacity = player_count * player_count; // TODO: fix queue and add contains routine
+  collisions.capacity = board.player_total * board.player_total; 
   collisions.rear = 0;
   collisions.front = 0;
   collisions.data = who;
@@ -1138,32 +1113,23 @@ XI(1, "", "", 0, 0, 0, 0, 0);
   int power_countdown = 8;
   int power_pair[2] = {27, 15};
 
-  int board_dim[3][4] = {{0, 0, 56, 31}, {0, 0, 0, 0}, {0, 0, 0, 0}};
-
-  bundle[0] = (void *)&killthread;
+  bundle[0] = (void *)&board;
   bundle[1] = (void *)players;
-  bundle[2] = (void *)&player_count;
-  bundle[3] = (void *)board_dim;
 
   while (1) { // main game loop ----------------------------------------------------------------------------
-  curr_player = 0;
+  board.curr_player = 0;
   view = 1;
-
-    if (1) {
-    ;
-    } // board too small? kill everyone!
 
     printf("powerup in: %d\n", power_countdown);
 
     RegionFill(0, 0, WW(0), WH(0), RGB(0,0,0), 0);
-    back(0, board_dim[0]);
+    back(0, board.dimensions);
 
     if (!power_countdown) {
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,255,0), 0); // new loca
     }
 
-
-    for (int i = 0; i < player_count; i++) {
+    for (int i = 0; i < board.player_total; i++) {
       for (int z = 0; z < 10; z++) { 
         for (int j = 0; j < 4; j++) {
           if (players[i]->lost_cann[j]) {
@@ -1183,33 +1149,33 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       }
     }
 
-    killthread = 0;
+    board.kill_anim_thread = 0;
     pthread_create(&animthread, 0, ping, (void *)bundle);
-    while (curr_player != player_count) { // player shot selection
-    pad_ranks(players[curr_player], pselect);
-    plist(players, player_count);
+    while (board.curr_player != board.player_total) { // player shot selection
+    pad_ranks(players[board.curr_player], pselect);
+    plist(players, board.player_total);
     RegionFill(1700, 0, 10, 1280, RGB(0,0,0), 0);
-    RegionFill(1700, curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0); // curr player indicate
+    RegionFill(1700, board.curr_player * 100 + 40, 10, 10, RGB(255,255,255), 0); // curr player indicate
 
       for (int i = 0; i < 10; i++) {
         for (int j = 0; j < 4; j++) {
-         if (players[curr_player]->lost_cann[j]) {
-          RegionFill(10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
-                   20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
+         if (players[board.curr_player]->lost_cann[j]) {
+          RegionFill(10 + DISPLAY_OFF + (players[board.curr_player]->board_loca[0] + (j&1)) * 34,
+                   20 + (players[board.curr_player]->board_loca[1] + (j>>1)) * 34,
                    34,
                    34,
                    RGB(255,255,255), 0);
           } else {
             if (view) {
             draw_suit(0,
-                    10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
-                    20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
-                    players[curr_player]->psuits[j],  1);
+                    10 + DISPLAY_OFF + (players[board.curr_player]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[board.curr_player]->board_loca[1] + (j>>1)) * 34,
+                    players[board.curr_player]->psuits[j],  1);
             } else {
             draw_dir(0,
-                    10 + DISPLAY_OFF + (players[curr_player]->board_loca[0] + (j&1)) * 34,
-                    20 + (players[curr_player]->board_loca[1] + (j>>1)) * 34,
-                    players[curr_player]->directions[j], 1);
+                    10 + DISPLAY_OFF + (players[board.curr_player]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[board.curr_player]->board_loca[1] + (j>>1)) * 34,
+                    players[board.curr_player]->directions[j], 1);
             }
           }
         }
@@ -1220,10 +1186,10 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     RegionFill(0, 0, 1000, 1000, RGB(0,0,0), 19);
 
       if (c.y < 800 && c.y > 600 && c.x < 500) {
-      curr_player++;
-        if (curr_player != player_count) {
+      board.curr_player++;
+        if (board.curr_player != board.player_total) {
           for (int i = 0; i < 4; i++) {
-          pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+          pselect[i] = players[board.curr_player]->round_shot[i][1] ? players[board.curr_player]->round_shot[i][0] - 1 : 13;
           }
         } else {
           for (int i = 0; i < 4; i++) {
@@ -1233,79 +1199,76 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       } else if (c.y < 800 && c.y > 600 && c.x > 500) {
       view = !view;
       } else if (c.y > 800 && c.x > 500) {
-      curr_player = (curr_player + 1)%player_count;
+      board.curr_player = (board.curr_player + 1)%board.player_total;
         for (int i = 0; i < 4; i++) {
-        pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+        pselect[i] = players[board.curr_player]->round_shot[i][1] ? players[board.curr_player]->round_shot[i][0] - 1 : 13;
         }
       } else if (c.y > 800 && c.x < 500) {
-      curr_player = curr_player ? curr_player - 1 : player_count - 1;
+      board.curr_player = board.curr_player ? board.curr_player - 1 : board.player_total - 1;
         for (int i = 0; i < 4; i++) {
-        pselect[i] = players[curr_player]->round_shot[i][1] ? players[curr_player]->round_shot[i][0] - 1 : 13;
+        pselect[i] = players[board.curr_player]->round_shot[i][1] ? players[board.curr_player]->round_shot[i][0] - 1 : 13;
         }
       } else if (c.y < 600) {
       xloca = c.x / 68;
       yloca = c.y / 150;
       pselect[yloca] = xloca;
-        if (players[curr_player]->round_shot[yloca][1] && players[curr_player]->round_shot[yloca][0] == xloca + 1)  {
-        players[curr_player]->round_shot[yloca][1] = 0;
+        if (players[board.curr_player]->round_shot[yloca][1] && players[board.curr_player]->round_shot[yloca][0] == xloca + 1)  {
+        players[board.curr_player]->round_shot[yloca][1] = 0;
         pselect[yloca] = 13;
         } else {
-        players[curr_player]->round_shot[yloca][1] = 1;
+        players[board.curr_player]->round_shot[yloca][1] = 1;
         }
-        players[curr_player]->round_shot[yloca][0] = xloca + 1;
+        players[board.curr_player]->round_shot[yloca][0] = xloca + 1;
       } 
     } // shot selection
-    killthread =  1;
+    board.kill_anim_thread =  1;
     pthread_join(animthread, 0);
 
 
-    prioritize(players, player_count, player_index);
+    prioritize(players, board.player_total, player_index);
 
     // Begin logic for processing kills and whatnot
 
-    for (int i = 0; i < player_count; i++) {
+    for (int i = 0; i < board.player_total; i++) {
       shot_store[i] = fire(players[i]);
     }
 
-    animate(players, player_count);
+    animate(players, board.player_total);
 
     // collision handling
     prev_coll = 0;
-    track_fix_collisions(players, player_count, &collisions, player_index);
+    track_fix_collisions(players, board.player_total, &collisions, player_index);
     coll = qsize(&collisions);
-    reset_pvect(players, player_count);
-    animate(players, player_count);
+    reset_pvect(players, board.player_total);
+    animate(players, board.player_total);
 
     while (coll != prev_coll) { // no new collisions
       prev_coll = coll;
-      track_fix_collisions(players, player_count, &collisions, player_index);
-      reset_pvect(players, player_count);
-      animate(players, player_count);
+      track_fix_collisions(players, board.player_total, &collisions, player_index);
+      reset_pvect(players, board.player_total);
+      animate(players, board.player_total);
       coll = qsize(&collisions);
-    } // TODO: intermediate animations
+    } // TODO: fix intermediate animations
 
 
     trade(players, &collisions); // no player index: order is based on queue
 
     printf("after trade:\n");
-    for (int z = 0; z < player_count; z++) {
+    for (int z = 0; z < board.player_total; z++) {
     printf("%d %d %d %d\n", players[z]->lost_cann[0], players[z]->lost_cann[1], players[z]->lost_cann[2], players[z]->lost_cann[3]);
     }
 
     if (!power_countdown) {
     RegionFill(10 + DISPLAY_OFF + power_pair[0] * 34 + 4, 20 + power_pair[1] * 34 + 4, 26, 26, RGB(0,0,0), 0); // erase old loca
     Flush(0);
-    power_pair[0] = (power_pair[0] + 1)%(board_dim[0][2] + 1);
+    power_pair[0] = (power_pair[0] + 1)%(board.dimensions[2] + 1);
     } else {
     power_countdown--;
     }
 
-    board_dim[0][0]++;
-    board_dim[0][1]++;
-    board_dim[0][2]--;
-    board_dim[0][3]--;
+    shrink_board(&board);
 
-    power_countdown = power_cycle(players, player_count, power_pair, power_countdown);
+    power_countdown = power_cycle(players, board.player_total, power_pair, power_countdown);
 
     // for all players store their loca into prev
     // adjust based on borders
@@ -1313,9 +1276,14 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
     // borders should shrink before shots land or are even animated
 
+    // animate each shot sequentially
+    // each non-anchor point will be the upper quad of all tanks minus the original player
+    // take from cgolk.c which has bezier_step and dir()
+    // sprite for rocket : x8
+
     // This is stupid and a more efficient way definitely exists 
-    for (int i = 0; i < player_count; i++) {
-      for (int j = 0; j < player_count; j++) {
+    for (int i = 0; i < board.player_total; i++) {
+      for (int j = 0; j < board.player_total; j++) {
       // find fire() intersection with other players
         for (int k = 0; k < 4; k++) {
         where = intersect(players[i], shot_store[j][k]);
