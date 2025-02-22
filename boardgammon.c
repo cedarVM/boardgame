@@ -464,6 +464,17 @@ int intersect(struct player *p, int *strike) {
 return 4;
 }
 
+void land_rocket(struct player **players, int pcount, int ***shot_store, int player, int cannon) {
+int where;
+    for (int i = 0; i < pcount; i++) {
+    where = intersect(players[i], shot_store[player][cannon]);
+      if (where != 4) {
+      printf("hit: %d %d\n", shot_store[player][cannon][0], shot_store[player][cannon][1]);
+      players[i]->lost_cann[where] = 1;
+      }
+    }
+}
+
 int **fire(struct player *p) { // returns int[4][2]
   int *shots[4] = {p->round_shot[0],
                    p->round_shot[1],
@@ -490,7 +501,6 @@ int **fire(struct player *p) { // returns int[4][2]
     landing[3] = landing[1]; // tacked on for animation
 
     if (shots[i][1] && !no_cann[i]) {
-    printf("Got %d %d on landing\n", landing[0], landing[1]);
       switch (dirs[i]) {
         case 0: // decrease y
         landing[1] = landing[1] - shots[i][0] < 0 ? landing[1] - shots[i][0] + 30 : landing[1] - shots[i][0];
@@ -884,6 +894,155 @@ void *ping(void *input) {
   }
 }
 
+char comp (int *o, int *n) {
+int dis;
+  if (n[0] > o[0]&&n[1] > o[1]) {
+    if (n[0] - o[0] > n[1] - o[1]) {
+    dis = (n[0] - o[0]) / (n[1] - o[1]);
+      if (dis > 1) {
+      return 2;
+      }
+    return 1;
+    } else {
+    dis = (n[1] - o[1]) / (n[0] - o[0]);
+      if (dis > 1) {
+      return 0;
+      }
+    return 1;
+    }
+  }
+  if (n[0] > o[0]&&n[1] < o[1]) {
+    if (n[0] - o[0] > o[1] - n[1]) {
+    dis = (n[0] - o[0]) / (o[1] - n[1]);
+      if (dis > 2) {
+      return 2;
+      }
+    return 3;
+    } else {
+    dis = (o[1] - n[1]) / (n[0] - o[0]);
+      if (dis > 1) {
+      return 4;
+      }
+    return 3;
+    }
+  }
+  if (n[0] < o[0]&&n[1] < o[1]) {
+    if (o[0] - n[0] > n[1] - o[1]) {
+    dis = (o[0] - n[0]) / (o[1] - n[1]);
+      if (dis > 1) {
+      return 6;
+      }
+    return 5;
+    } else {
+    dis = (o[1] - n[1]) / (o[0] - n[0]);
+      if (dis > 1) {
+      return 4;
+      }
+    return 5;
+    }
+  }
+  if (n[0] < o[0]&&n[1] > o[1]) {
+    if (o[0] - n[0] > n[1] - o[1]) {
+    dis = (o[0] - n[0]) / (n[1] - o[1]);
+      if (dis > 1) {
+      return 6;
+      }
+    return 7;
+    } else {
+    dis = (n[1] - o[1]) / (o[0] - n[0]);
+      if (dis > 1) {
+      return 8;
+      }
+    return 7;
+    }
+  }
+return 0;
+}
+
+void bezier (int *point, int *x, int *y, int n, float t) {
+char i, j;
+int slice[20];
+float snbl, totx, toty;
+//int *point = malloc(sizeof(i)*2);
+snbl = 1;
+
+slice[0] = 1;
+        for (i = 1; i < (n + 1)/2; i++) {
+        slice[i] = slice[i - 1] * (n - i)/i;
+        }
+
+        for (i = n - 1; i > (n - 1)/2; i--) {
+        slice[i] = slice[n - i - 1];
+        }
+
+        totx=0;
+        toty=0;
+        i  = 0;
+        while (i < n) { // n-1 times (for each term)
+        snbl = 1;
+                for (j = 0; j < n - i - 1; j++) {
+                snbl*=(1 - t);
+                }
+                for (j = 0; j < i; j++) {
+                snbl*=t;
+                }
+
+        snbl*=slice[i];
+        totx+=x[i]*snbl;
+        toty+=y[i]*snbl;
+        i++;
+  }
+point[0] = (int)totx;
+point[1] = (int)toty;
+}
+
+void animate_rocket(int *rocket_x_path, int *rocket_y_path, int path_length) {
+
+int frame_placement[2];
+
+  for (int i = 0; i < path_length; i++) {
+  rocket_x_path[i] *= 34;
+  rocket_y_path[i] *= 34;
+  }
+
+  for (float t = 0.0; t <= 1.001; t+=0.05) {
+  bezier(frame_placement, rocket_x_path, rocket_y_path, path_length, t);
+  RegionFill(DISPLAY_OFF + 10 + frame_placement[0], 20 + frame_placement[1], 10, 10, RGB(255,255,255), 0);
+  Flush(0);
+  usleep(150000);
+  }
+
+usleep(1000000);
+
+}
+
+void redraw(struct board_state *board, struct player **players) {
+  RegionFill(DISPLAY_OFF, 0, 1920, 1080, RGB(0,0,0), 0);
+  back(0, board->dimensions);
+    for (int i = 0; i < board->player_total; i++) {
+      RegionScarf(8 + 10 + DISPLAY_OFF + 34 * (players[i]->pvect_loca[0] + players[i]->board_loca[0]),
+                  8 + 20 + 34 * (players[i]->pvect_loca[1] + players[i]->board_loca[1]), 53, 53, players[i]->color, 0); 
+
+      for (int z = 0; z < 10; z++) { 
+        for (int j = 0; j < 4; j++) {
+          if (players[i]->lost_cann[j]) {
+          RegionFill(10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                   34,
+                   34,
+                   RGB(255,255,255), 0);
+          Flush(0);
+          } else {
+          draw_suit(0,
+                    10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
+                    20 + (players[i]->board_loca[1] + (j>>1)) * 34,
+                    players[i]->psuits[j], 1);
+          }
+        }
+      }
+    }
+}
+
 pthread_t animthread;
 void *bundle[2]; // void **
 
@@ -1246,25 +1405,24 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       shot_store[i] = fire(players[i]);
     }
 
-    animate(players, board.player_total);
 
     // collision handling
     prev_coll = 0;
     track_fix_collisions(players, board.player_total, &collisions, playerprio_map);
     coll = qsize(&collisions);
-    reset_pvect(players, board.player_total);
-    animate(players, board.player_total);
+    //reset_pvect(players, board.player_total);
 
     while (coll != prev_coll) { // no new collisions
       prev_coll = coll;
       track_fix_collisions(players, board.player_total, &collisions, playerprio_map);
-      reset_pvect(players, board.player_total);
-      animate(players, board.player_total);
+      //reset_pvect(players, board.player_total);
       coll = qsize(&collisions);
     } // TODO: fix intermediate animations
 
 
     trade(players, &collisions); // no player index: order is based on queue
+
+    animate(players, board.player_total);
 
     printf("after trade:\n");
     for (int z = 0; z < board.player_total; z++) {
@@ -1279,7 +1437,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     power_countdown--;
     }
 
-    shrink_board(&board);
+    //shrink_board(&board);
 
     power_countdown = power_cycle(players, board.player_total, power_pair, power_countdown);
 
@@ -1289,43 +1447,22 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
     // borders should shrink before shots land or are even animated
 
-    for (int i = 0; i < board.player_total; i++) {
+    for (int i = 0; i < board.player_total; i++) { // iterate prioplayer_map
       for (int j = 0; j < 4; j++) {
         if (players[ prioplayer_map[i] ]->round_shot[j][1]) {
           players[ prioplayer_map[i] ]->round_shot[j][1] = 0;
-          printf("we are setting path\n");
           set_rocket_path(players, board.player_total, shot_store, j, prioplayer_map[i], rocket_x_path, rocket_y_path, prioplayer_map);
-            for (int z = 0; z < board.player_total + 1; z++) {
-            printf("%d %d\n", rocket_x_path[z], rocket_y_path[z]);
-            }
-        // animate_rocket();
-        // redraw board
+          animate_rocket(rocket_x_path, rocket_y_path, board.player_total + 1);
+          land_rocket(players, board.player_total, shot_store, prioplayer_map[i], j);
+          redraw(&board, players);
         }
       }
     }
 
-
-
-    // animate each shot sequentially
-    // each non-anchor point will be the upper quad of all tanks minus the original player
     // take from cgolk.c which has bezier_step and dir()
     // sprite for rocket : x8
 
-    // This is stupid and a more efficient way definitely exists 
-    for (int i = 0; i < board.player_total; i++) {
-      for (int j = 0; j < board.player_total; j++) {
-      // find fire() intersection with other players
-        for (int k = 0; k < 4; k++) {
-        where = intersect(players[i], shot_store[j][k]);
-          if (where != 4) {
-          printf("hit: %d %d\n", shot_store[j][k][0], shot_store[j][k][1]);
-          players[i]->lost_cann[where] = 1;
-          }
-        }
-      }
-    }
-
-// animate projectiles
-
   } // main game loop
 } // int main
+
+
