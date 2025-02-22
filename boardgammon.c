@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "xbm/pi4.xbm"
 #include "xbm/suits.xbm"
 #include "xbm/ranks.xbm"
 #include "xbm/directions.xbm"
@@ -266,6 +267,69 @@ char cond = (dir&1)^(dir>>1);
     offx = cond ? i_offx : i_offy;
     offy = cond ? i_offy : 31 - i_offx;
     RegionFill(x + scale * offx, y + scale * offy, scale, scale, !( ( dir_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+    }
+  }
+
+}
+
+int compass_dir_map(int x) {
+  if (x==4) {
+    return 0;
+  } else if (x==2) {
+    return 1;
+  } else if (x==6) {
+    return 2;
+  } else {
+    return 3;
+  }
+}
+
+int pi4_dir_map(int x) {
+  if (x==5) {
+  return 0;
+  } else if (x==3) {
+  return 1;
+  } else if (x==1) {
+  return 2;
+  } else if (x==7) {
+  return 3;
+  } 
+  return 0;
+}
+
+void draw_rocket_compass(int d, int x, int y, int dir, int scale, long long color) {
+
+int i_offx, i_offy, offx, offy;
+char cond = (dir&1)^(dir>>1);
+
+  for (int i = 0; i < 32; i++) {
+    for (int j = 0; j < 32; j++) {
+    i_offx = dir_x(i, dir);
+    i_offy = j;
+    offx = cond ? i_offx : i_offy;
+    offy = cond ? i_offy : 31 - i_offx;
+      if ( !( ( compass_bits[j * 4 + i / 8]>>(i&7) )&1 ) ) {
+      RegionFill(x + scale * offx, y + scale * offy, scale, scale, color, d);
+     }
+    }
+  }
+
+}
+
+void draw_rocket_pi4(int d, int x, int y, int dir, int scale, long long color) {
+
+int i_offx, i_offy, offx, offy;
+char cond = (dir&1)^(dir>>1);
+
+  for (int i = 0; i < 32; i++) {
+    for (int j = 0; j < 32; j++) {
+    i_offx = dir_x(i, dir);
+    i_offy = j;
+    offx = cond ? i_offx : i_offy;
+    offy = cond ? i_offy : 31 - i_offx;
+      if ( !( ( pi4_bits[j * 4 + i / 8]>>(i&7) )&1 ) ) {
+      RegionFill(x + scale * offx, y + scale * offy, scale, scale, color, d);
+     }
     }
   }
 
@@ -894,17 +958,36 @@ void *ping(void *input) {
   }
 }
 
-char comp (int *o, int *n) {
+char comp(int *o, int *n) { // counterclockwise assignment starting at 0. 8 cardinal dires
 int dis;
+
+
+  if (n[0]==o[0] && n[1] > o[1]) {
+  return 0;
+  }
+
+  if (n[0] > o[0] && n[1]==o[1]) {
+  return 2;
+  }
+
+  if (n[0]==o[0] && n[1] < o[1]) {
+  return 4;
+  }
+
+
+  if (n[0] < o[0] && n[1]==o[1]) {
+  return 6;
+  }
+
   if (n[0] > o[0]&&n[1] > o[1]) {
-    if (n[0] - o[0] > n[1] - o[1]) {
+    if (abs(n[0] - o[0]) >= abs(n[1] - o[1])) {
     dis = (n[0] - o[0]) / (n[1] - o[1]);
       if (dis > 1) {
       return 2;
       }
     return 1;
     } else {
-    dis = (n[1] - o[1]) / (n[0] - o[0]);
+    dis = abs(n[1] - o[1]) / abs(n[0] - o[0]);
       if (dis > 1) {
       return 0;
       }
@@ -912,14 +995,14 @@ int dis;
     }
   }
   if (n[0] > o[0]&&n[1] < o[1]) {
-    if (n[0] - o[0] > o[1] - n[1]) {
-    dis = (n[0] - o[0]) / (o[1] - n[1]);
-      if (dis > 2) {
+    if (abs(n[0] - o[0]) >= abs(o[1] - n[1])) {
+    dis = abs(n[0] - o[0]) / abs(o[1] - n[1]);
+      if (dis > 1) {
       return 2;
       }
     return 3;
     } else {
-    dis = (o[1] - n[1]) / (n[0] - o[0]);
+    dis = abs(o[1] - n[1]) / abs(n[0] - o[0]);
       if (dis > 1) {
       return 4;
       }
@@ -927,14 +1010,14 @@ int dis;
     }
   }
   if (n[0] < o[0]&&n[1] < o[1]) {
-    if (o[0] - n[0] > n[1] - o[1]) {
-    dis = (o[0] - n[0]) / (o[1] - n[1]);
+    if (abs(o[0] - n[0]) >= abs(n[1] - o[1])) {
+    dis = abs(o[0] - n[0]) / abs(o[1] - n[1]);
       if (dis > 1) {
       return 6;
       }
     return 5;
     } else {
-    dis = (o[1] - n[1]) / (o[0] - n[0]);
+    dis = abs(o[1] - n[1]) / abs(o[0] - n[0]);
       if (dis > 1) {
       return 4;
       }
@@ -942,22 +1025,23 @@ int dis;
     }
   }
   if (n[0] < o[0]&&n[1] > o[1]) {
-    if (o[0] - n[0] > n[1] - o[1]) {
-    dis = (o[0] - n[0]) / (n[1] - o[1]);
+    if (abs(o[0] - n[0]) >= abs(n[1] - o[1])) {
+    dis = abs(o[0] - n[0]) / abs(n[1] - o[1]);
       if (dis > 1) {
       return 6;
       }
     return 7;
     } else {
-    dis = (n[1] - o[1]) / (o[0] - n[0]);
+    dis = abs(n[1] - o[1]) / abs(o[0] - n[0]);
       if (dis > 1) {
-      return 8;
+      return 0;
       }
     return 7;
     }
   }
 return 0;
 }
+
 
 void bezier (int *point, int *x, int *y, int n, float t) {
 char i, j;
@@ -996,21 +1080,35 @@ point[0] = (int)totx;
 point[1] = (int)toty;
 }
 
-void animate_rocket(int *rocket_x_path, int *rocket_y_path, int path_length) {
+void animate_rocket(int *rocket_x_path, int *rocket_y_path, int path_length, long long color) {
 
 int frame_placement[2];
+int prev_frame[2];
+int dir_compare;
 
   for (int i = 0; i < path_length; i++) {
   rocket_x_path[i] *= 34;
   rocket_y_path[i] *= 34;
   }
 
-  for (float t = 0.0; t <= 1.001; t+=0.05) {
+  bezier(prev_frame, rocket_x_path, rocket_y_path, path_length, 0.0);
+
+  for (float t = 0.0; t <= 1.001; t+=0.08) {
   bezier(frame_placement, rocket_x_path, rocket_y_path, path_length, t);
-  RegionFill(DISPLAY_OFF + 10 + frame_placement[0], 20 + frame_placement[1], 10, 10, RGB(255,255,255), 0);
+  dir_compare = comp(prev_frame, frame_placement);
+    if (dir_compare&1) {
+    draw_rocket_pi4(0, DISPLAY_OFF + 10 + frame_placement[0], 20 + frame_placement[1], pi4_dir_map(dir_compare), 1, color);
+    } else {
+    draw_rocket_compass(0, DISPLAY_OFF + 10 + frame_placement[0], 20 + frame_placement[1], compass_dir_map(dir_compare), 1, color);
+    }
   Flush(0);
-  usleep(150000);
+  usleep(170000);
+  prev_frame[0] = frame_placement[0];
+  prev_frame[1] = frame_placement[1];
   }
+
+  RegionFill(DISPLAY_OFF + 10 + rocket_x_path[path_length - 1] + 5, 20 + rocket_y_path[path_length - 1] + 5, 24, 24, color, 2);
+  Flush(2);
 
 usleep(1000000);
 
@@ -1452,7 +1550,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         if (players[ prioplayer_map[i] ]->round_shot[j][1]) {
           players[ prioplayer_map[i] ]->round_shot[j][1] = 0;
           set_rocket_path(players, board.player_total, shot_store, j, prioplayer_map[i], rocket_x_path, rocket_y_path, prioplayer_map);
-          animate_rocket(rocket_x_path, rocket_y_path, board.player_total + 1);
+          animate_rocket(rocket_x_path, rocket_y_path, board.player_total + 1, players[ prioplayer_map[i] ]->color);
           land_rocket(players, board.player_total, shot_store, prioplayer_map[i], j);
           redraw(&board, players);
         }
