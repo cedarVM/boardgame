@@ -81,9 +81,8 @@ board->dimensions[2]--;
 board->dimensions[3]--;
 }
 
-void prioritize(struct player **players, int pcount, int *prio_arr) {
+void prioritize(struct player **players, int pcount, int *prio_arr, int *prioplayer_map) {
   int magnitudes[pcount];
-  int prioplayer_map[pcount];
   int insert, j;
 
   for (int i = 0; i < pcount; i++) {
@@ -489,8 +488,9 @@ int **fire(struct player *p) { // returns int[4][2]
     landing[1] = loca[1] + (i>>1);
     landing[2] = landing[0];
     landing[3] = landing[1]; // tacked on for animation
-    if (shots[i][1] && !no_cann[i]) {
 
+    if (shots[i][1] && !no_cann[i]) {
+    printf("Got %d %d on landing\n", landing[0], landing[1]);
       switch (dirs[i]) {
         case 0: // decrease y
         landing[1] = landing[1] - shots[i][0] < 0 ? landing[1] - shots[i][0] + 30 : landing[1] - shots[i][0];
@@ -509,8 +509,6 @@ int **fire(struct player *p) { // returns int[4][2]
       landing[0] = -1;
       landing[1] = -1;
     }
-    landing[2] = (landing[0] + landing[4])/2;
-    landing[3] = (landing[1] + landing[5])/2 - abs(landing[5] - landing[1]);
     saved_shots[i] = landing;
   } // projectile landings
 
@@ -539,7 +537,7 @@ int **fire(struct player *p) { // returns int[4][2]
         break;
       }
     }
-    shots[i][1] = 0;
+    //shots[i][1] = 0;
   }
 
   loca[0] = (int)((loca[0] + dx < 0 ? 55 : 0) + loca[0] + dx) % 55; // 55 = 56 - 1
@@ -553,7 +551,21 @@ return saved_shots;
 
 }
 
-void set_rocket_paths() {
+void set_rocket_path(struct player **players, int pcount, int ***bang, int which_cann, int origin, int *rpathx, int *rpathy, int *prio_arr) {
+rpathx[0] = bang[origin][which_cann][2];
+rpathy[0] = bang[origin][which_cann][3];
+rpathx[pcount] = bang[origin][which_cann][0];
+rpathy[pcount] = bang[origin][which_cann][1];
+
+int inc = 1;
+
+  for (int i = 0; i < pcount; i++) {
+    if (i != origin) {
+    rpathx[inc] = players[i]->board_loca[0];
+    rpathy[inc] = players[i]->board_loca[1];
+    inc++;
+    }
+  }
 
 }
 
@@ -1090,7 +1102,8 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
   Flush(0);
 
-  int player_index[board.player_total];
+  int prioplayer_map[board.player_total];
+  int playerprio_map[board.player_total];
 
   int pselect[4] = {13, 13, 13, 13};
   int **shot_store[board.player_total];
@@ -1164,7 +1177,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
                    20 + (players[board.curr_player]->board_loca[1] + (j>>1)) * 34,
                    34,
                    34,
-                   RGB(255,255,255), 0);
+                   RGB(255,255,255), 0); // draw deffective suit instead
           } else {
             if (view) {
             draw_suit(0,
@@ -1225,7 +1238,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     pthread_join(animthread, 0);
 
 
-    prioritize(players, board.player_total, player_index);
+    prioritize(players, board.player_total, prioplayer_map, playerprio_map);
 
     // Begin logic for processing kills and whatnot
 
@@ -1237,14 +1250,14 @@ XI(1, "", "", 0, 0, 0, 0, 0);
 
     // collision handling
     prev_coll = 0;
-    track_fix_collisions(players, board.player_total, &collisions, player_index);
+    track_fix_collisions(players, board.player_total, &collisions, playerprio_map);
     coll = qsize(&collisions);
     reset_pvect(players, board.player_total);
     animate(players, board.player_total);
 
     while (coll != prev_coll) { // no new collisions
       prev_coll = coll;
-      track_fix_collisions(players, board.player_total, &collisions, player_index);
+      track_fix_collisions(players, board.player_total, &collisions, playerprio_map);
       reset_pvect(players, board.player_total);
       animate(players, board.player_total);
       coll = qsize(&collisions);
@@ -1275,6 +1288,23 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     // do fix if collision number has increased
 
     // borders should shrink before shots land or are even animated
+
+    for (int i = 0; i < board.player_total; i++) {
+      for (int j = 0; j < 4; j++) {
+        if (players[ prioplayer_map[i] ]->round_shot[j][1]) {
+          players[ prioplayer_map[i] ]->round_shot[j][1] = 0;
+          printf("we are setting path\n");
+          set_rocket_path(players, board.player_total, shot_store, j, prioplayer_map[i], rocket_x_path, rocket_y_path, prioplayer_map);
+            for (int z = 0; z < board.player_total + 1; z++) {
+            printf("%d %d\n", rocket_x_path[z], rocket_y_path[z]);
+            }
+        // animate_rocket();
+        // redraw board
+        }
+      }
+    }
+
+
 
     // animate each shot sequentially
     // each non-anchor point will be the upper quad of all tanks minus the original player
