@@ -1093,7 +1093,7 @@ int dir_compare;
 
   bezier(prev_frame, rocket_x_path, rocket_y_path, path_length, 0.0);
 
-  for (float t = 0.0; t <= 1.001; t+=0.08) {
+  for (float t = 0.0; t <= 1.001; t+=1/(float)path_length/10) {
   bezier(frame_placement, rocket_x_path, rocket_y_path, path_length, t);
   dir_compare = comp(prev_frame, frame_placement);
     if (dir_compare&1) {
@@ -1102,7 +1102,7 @@ int dir_compare;
     draw_rocket_compass(0, DISPLAY_OFF + 10 + frame_placement[0], 20 + frame_placement[1], compass_dir_map(dir_compare), 1, color);
     }
   Flush(0);
-  usleep(170000);
+  usleep(170000 / path_length * 2);
   prev_frame[0] = frame_placement[0];
   prev_frame[1] = frame_placement[1];
   }
