@@ -113,141 +113,84 @@ void prioritize(struct player **players, int pcount, int *prio_arr, int *priopla
 
 #define DISPLAY_OFF 1920
 
-void draw_suit(int d, int x, int y, enum suit which, int scale) { // take color param
-
+char *get_suit_bits(enum suit which) {
   switch (which) {
+  case C:
+  return suit0_bits;
+  break;
+  case S:
+  return suit1_bits;
+  break;
+  case H:
+  return suit2_bits;
+  break;
+  case D:
+  return suit3_bits;
+  break;
+  }
+}
 
-    case C:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 32; j++) {
-      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit0_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
+char *get_rank_bits(enum rank which) { // for documentational clarity
+                                                // could very well just be a table
+  switch (which) {
+    case ACE:
+    return rank0_bits;
     break;
-    case S:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 32; j++) {
-      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit1_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
+    case TWO:
+    return rank1_bits;
+    break;
+    case THREE:
+    return rank2_bits;
+    break;
+    case FOUR:
+    return rank3_bits;
+    break;
+    case FIVE:
+    return rank4_bits;
+    break;
+    case SIX:
+    return rank5_bits;
+    break;
+    case SEVEN:
+    return rank6_bits;
+    break;
+    case EIGHT:
+    return rank7_bits;
+    break;
+    case NINE:
+    return rank8_bits;
+    break;
+    case TEN:
+    return rank9_bits;
+    break;
+    case JACK:
+    return rank10_bits;
+    break;
+    case QUEEN:
+    return rank11_bits;
+    break;
+    case KING:
+    return rank12_bits;
     break;
 
-    case H:
-     for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 32; j++) {
-      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit2_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case D:
-     for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 32; j++) {
-      RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( suit3_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
   }
 
 }
 
-void draw_rank(int d, int x, int y, enum rank which) { // THIS SHIT IS WHY COMPILER DIRECTIVES EXIST
-
-  switch (which) {
-
-    case ACE:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank0_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
+void draw_suit(int d, int x, int y, char *bits, int scale) { // take color param
+  for (int i = 0; i < 32; i++) {
+    for (int j = 0; j < 32; j++) {
+    RegionFill(i * scale + x, j * scale + y, scale, scale, !( ( bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
     }
-    break;
-    case TWO:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank1_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case THREE:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank2_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case FOUR:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank3_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case FIVE:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank4_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case SIX:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank5_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case SEVEN:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank6_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case EIGHT:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank7_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case NINE:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank8_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case TEN:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank9_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case JACK:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank10_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case QUEEN:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank11_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-    case KING:
-    for (int i = 0; i < 32; i++) {
-      for (int j = 0; j < 48; j++) {
-      RegionFill(i + x, j + y, 1, 1, !( ( rank12_bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
-      }
-    }
-    break;
-
   }
+}
 
+void draw_rank(int d, int x, int y, char *bits) {
+  for (int i = 0; i < 32; i++) {
+    for (int j = 0; j < 48; j++) {
+    RegionFill(i + x, j + y, 1, 1, !( ( bits[j * 4 + i / 8]>>(i&7) )&1 ) ? RGB(255,255,255) : RGB(0,0,0), d);
+    }
+  }
 }
 
 int dir_x(int i, int dir) {
@@ -272,6 +215,28 @@ char cond = (dir&1)^(dir>>1);
 
 }
 
+char *dir_bitmap(int dir) {
+
+char *ret = malloc(128);
+
+int i_offx, i_offy, offx, offy;
+char cond = (dir&1)^(dir>>1);
+
+  for (int i = 0; i < 32; i++) {
+    for (int j = 0; j < 32; j++) {
+    i_offx = dir_x(i, dir);
+    i_offy = j;
+    offx = cond ? i_offx : i_offy;
+    offy = cond ? i_offy : 31 - i_offx;
+    ret[offy*4 + offx/8] |= ( ( dir_bits[j * 4 + i / 8]>>(i&7) )&1 )<<(offx&7);
+    }
+  }
+
+return ret;
+
+}
+
+
 int compass_dir_map(int x) {
   if (x==4) {
     return 0;
@@ -290,9 +255,9 @@ int pi4_dir_map(int x) {
   } else if (x==3) {
   return 1;
   } else if (x==1) {
-  return 2;
-  } else if (x==7) {
   return 3;
+  } else if (x==7) {
+  return 2;
   } 
   return 0;
 }
@@ -324,12 +289,42 @@ char cond = (dir&1)^(dir>>1);
   for (int i = 0; i < 32; i++) {
     for (int j = 0; j < 32; j++) {
     i_offx = dir_x(i, dir);
-    i_offy = j;
+    i_offy = dir_x(j, dir);
     offx = cond ? i_offx : i_offy;
     offy = cond ? i_offy : 31 - i_offx;
       if ( !( ( pi4_bits[j * 4 + i / 8]>>(i&7) )&1 ) ) {
       RegionFill(x + scale * offx, y + scale * offy, scale, scale, color, d);
      }
+    }
+  }
+
+}
+
+int get_x(int dir, int iter, int index) {
+return (dir>>1)^(dir&1) ? index : iter;
+}
+
+int get_y(int dir, int iter, int index) {
+return (dir>>1)^(dir&1) ? iter : index;
+}
+
+int flip(int dir, int coord) {
+return dir==0 || dir==2 ? 31 - coord : coord;
+}
+
+void draw_bit_stripe(int d, int x, int y, int dir, int index, char *bits, long long maincolor, char base) {
+
+int offx, offy;
+char bit;
+
+  for (int i = 0; i < 32; i++) {
+  offx = flip(dir, get_x(dir, i, index));
+  offy = flip(dir, get_y(dir, i, index));
+  bit = !( ( bits[offy * 4 + offx / 8]>>(offx&7) )&1 );
+    if ( base ) {
+    RegionFill(x + offx, y + offy, 1, 1, bit ? RGB(255,255,255) : RGB(0,0,0), d);
+    } else {
+    RegionFill(x + offx, y + offy, 1, 1, bit ? RGB(255,255,255) : maincolor, d);
     }
   }
 
@@ -378,6 +373,7 @@ return ((x>>2) | x&3);
 }
 
 void pad(void) {
+
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
     RegionScarf(i * 333 + 1, j * 333 + 1, 333, 333, RGB(255,255,255), 19);
@@ -388,7 +384,7 @@ void pad(void) {
   }
   for (int i = 0; i < 4; i++) {
     RegionScarf(i * 250 + 1, 666, 250, 250, RGB(255, 255, 255), 19);
-    draw_suit(19, i * 250 + 26, 666 + 26, (enum suit)i, 6);
+    draw_suit(19, i * 250 + 26, 666 + 26, get_suit_bits( i ), 6);
   }
 
 }
@@ -426,13 +422,13 @@ void pad_ranks(struct player *p, int select[4]) {
 
   for (int i = 0; i < 13; i++) {
     for (int j = 0; j < 4; j++) {
-      draw_rank(19, i * 68 + 17, j * 150 + 51, (enum rank)i);
-      draw_suit(19, i * 68, j * 150, p->psuits[j], 1);
+      draw_rank(19, i * 68 + 17, j * 150 + 51, get_rank_bits( i ) );
+      draw_suit(19, i * 68, j * 150, get_suit_bits( p->psuits[j] ), 1);
 
       if (p->lost_cann[j]) {
       RegionFill(i * 68 + 34, j * 150 + 116, 34, 34, RGB(255,255,255), 19);
       } else {
-      draw_suit(19, i * 68 + 34, j * 150 + 116, p->psuits[j], 1);
+      draw_suit(19, i * 68 + 34, j * 150 + 116, get_suit_bits( p->psuits[j] ), 1);
       }
     }
   }
@@ -449,7 +445,7 @@ void plist(struct player **multi, int num) {
       RegionFill(1810 + 34 * (j&1) + 5, 10 + i * 100 + 34 * (j>>1) + 5, 23, 23, RGB(0,0,0), 0);
       } else {
       draw_dir(0, 1720 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), multi[i]->directions[j], 1);
-      draw_suit(0, 1810 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), (enum suit)multi[i]->psuits[j], 1);
+      draw_suit(0, 1810 + 34 * (j&1), 10 + i * 100 + 34 * (j>>1), get_suit_bits( multi[i]->psuits[j] ), 1);
       }
     }
   }
@@ -917,7 +913,7 @@ int xloca, yloca;
               draw_suit(0,
                    t * (34 * players[i]->pvect_loca[0]) + 10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
                    t * (34 * players[i]->pvect_loca[1]) + 20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                   players[i]->psuits[j], 1);
+                   get_suit_bits( players[i]->psuits[j] ), 1);
           }
         }
       }
@@ -931,13 +927,19 @@ void *ping(void *input) {
   struct board_state *state = (struct board_state *)retrieve[0];
   struct player **players = (struct player **)retrieve[1];
   int selected;
-  int backing[4];
   XI(1, "", "", 0, 0, 0, 0, 2);
 
   while(!state->kill_anim_thread) {
   selected = state->curr_player;
     for (int j = 0; j < 10; j++) {
       for (int i = 0; i < state->player_total; i++) {
+        for (int cannon = 0; cannon < 4; cannon++) {
+          if (!players[i]->lost_cann[cannon]) {
+            for (int stripe = 0; stripe < 3; stripe++) {
+            draw_bit_stripe(2, DISPLAY_OFF + 10 + 34 * (players[i]->board_loca[0] + (cannon&1)), 20 + 34 * (players[i]->board_loca[1] + (cannon>>1)), players[i]->directions[cannon], j * 3 + stripe, dir_bitmap(players[i]->directions[cannon]), players[i]->color, 0);
+            }
+          }
+        }
       RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, i==selected ? players[i]->color : RGB(0,0,0), 2);
       usleep(18000 - (state->player_total - 2) * 2500);
       Flush(2);
@@ -945,10 +947,13 @@ void *ping(void *input) {
     }
     for (int j = 0; j < 10; j++) {
       for (int i = 0; i < state->player_total; i++) {
-      backing[0] = players[i]->board_loca[0] - 1;
-      backing[1] = players[i]->board_loca[1] - 1;
-      backing[2] = backing[0] + 4;
-      backing[3] = backing[1] + 4;
+        for (int cannon = 0; cannon < 4; cannon++) {
+          if (!players[i]->lost_cann[cannon]) {
+            for (int stripe = 0; stripe < 3; stripe++) {
+            draw_bit_stripe(2, DISPLAY_OFF + 10 + 34 * (players[i]->board_loca[0] + (cannon&1)), 20 + 34 * (players[i]->board_loca[1] + (cannon>>1)), players[i]->directions[cannon], j * 3 + stripe, get_suit_bits(players[i]->psuits[cannon]), players[i]->color, 1);
+            }
+          }
+        }
       back(2, state->dimensions);
       RegionScarf(DISPLAY_OFF + 10 + 34 * players[i]->board_loca[0] - j, 20 + 34 * players[i]->board_loca[1] - j, 68 + j * 2, 68 + j * 2, i==selected ? RGB(0,0,0) : players[i]->color, 2);
       usleep(18000 - (state->player_total - 2) * 2500);
@@ -1134,7 +1139,7 @@ void redraw(struct board_state *board, struct player **players) {
           draw_suit(0,
                     10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
                     20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                    players[i]->psuits[j], 1);
+                    get_suit_bits( players[i]->psuits[j] ), 1);
           }
         }
       }
@@ -1191,7 +1196,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       back(0, board.dimensions);
 
         for (int i = 0; i < 4; i++) { //suit_count
-        draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
+        draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], get_suit_bits( i ), 1);
         }
 
       Flush(0);
@@ -1232,7 +1237,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
     plist(players, board.player_total - 1);
 
     for (int i = 0; i < 4; i++) {
-    draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], (enum suit)i, 1);
+    draw_suit(0, 10 + DISPLAY_OFF + 34 * temp_player_pos[i][0], 20 + 34 * temp_player_pos[i][1], get_suit_bits(i), 1);
     }
 
 // back();
@@ -1304,7 +1309,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
         draw_suit(0,
                   10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
                   20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                  players[i]->psuits[j], 1);
+                  get_suit_bits( players[i]->psuits[j] ), 1);
       }
     }
     back(0, board.dimensions);
@@ -1353,7 +1358,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
       draw_suit(0,
              10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
              20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-             players[i]->psuits[j], 1);
+             get_suit_bits( players[i]->psuits[j] ), 1);
     }
   }
 
@@ -1413,7 +1418,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
           draw_suit(0,
                     10 + DISPLAY_OFF + (players[i]->board_loca[0] + (j&1)) * 34,
                     20 + (players[i]->board_loca[1] + (j>>1)) * 34,
-                    players[i]->psuits[j], 1);
+                    get_suit_bits( players[i]->psuits[j] ), 1);
           }
         }
       }
@@ -1440,7 +1445,7 @@ XI(1, "", "", 0, 0, 0, 0, 0);
             draw_suit(0,
                     10 + DISPLAY_OFF + (players[board.curr_player]->board_loca[0] + (j&1)) * 34,
                     20 + (players[board.curr_player]->board_loca[1] + (j>>1)) * 34,
-                    players[board.curr_player]->psuits[j],  1);
+                    get_suit_bits( players[board.curr_player]->psuits[j] ),  1);
             } else {
             draw_dir(0,
                     10 + DISPLAY_OFF + (players[board.curr_player]->board_loca[0] + (j&1)) * 34,
