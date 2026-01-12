@@ -1,6 +1,6 @@
 # The boardgame of all time
 
-## Inspirations:
+# Inspirations:
 This game has two distinct inspirations:
 
 Highschool study hours were pretty boring. To compensate, I folded sheets of my algebra II graph paper and began drawing the typical battleship alphanumeric grid. After a few classmates came to gawk at my progress, I acquired one intrigued classmate after the other, until my hands were exhausted and nearly half the room was playing battleship. I fortunately had the rules of play handy, and we all had a great time. I wanted this simple boardgame to have the same homebrew appeal, but taking advantage of automation and an ulterior vision where possible.
@@ -36,7 +36,7 @@ The third undesirable option is what makes collisions risky, yet palpable.
 
 ... and I think that's everything ...
 
-## Installation (approximately):
+# Installation (approximately):
 Warning: You must have a slightly modified version of [Some Simple Wrappers](https://github.com/xleph/ssw) (ssw) installed system wide for the following:
 
 `(g)cc queue.c boardgammon.c -o boardgammon -lssw`
