@@ -25,7 +25,16 @@ Having played a card garauntees that the relevant player's raft will be moved in
 A player which has been hit by a cannonball, loses a (whole) cannon on the relevant tile on which they were struck. This cannon is no longer usable in future play, and in some cases renders a particular card type in their deck essentially inert (another fault of the game). 
 
 ## Regarding collisions
-Collisions offer great creative potential to the player. Regaining cannons is possible, if a player calculates his moves correctly. A number of potential collision combinations are possible. In configuration 1, If a full-raft overlap occurs, the player with priority (see game code) moves one more tile in the direction of their recoil. This places them in configuration 2. If no additional recoil is on the player, a random direction (perpendicular to the previous recoil) is chosen and the raft is moved that direction one unit. The goal is the enter all rafts into configuration 3 in which rafts collide only on one tile.
+Collisions offer great creative potential to the player. Regaining cannons is possible, if a player calculates his moves correctly. A number of potential collision configurations are possible. In configuration 1, If a full-raft overlap occurs, the player with priority (see game code) moves one more tile in the direction of their recoil. This places them in configuration 2. If no additional recoil is on the player, a random direction (perpendicular to the previous recoil) is chosen and the raft is moved that direction one unit. The goal is the enter all rafts into configuration 3 in which rafts collide only on one tile. If a pair of rafts are in configuration 2, we move them to configuration 3.
+
+In configuration 3, the collided tiles do one of three things:
+  + Exchange an active cannon on player 1 for an inactive cannon on player 2 (giving player 2 a new cannon)
+  + Exchange an active cannon on player 2 for an inactive cannon on player 1 (giving player 1 a new cannon)
+  + Destroy both cannons, provided both players have an active cannon on the tile where the collision happened
+
+The third undesirable option is what makes collisions risky, yet palpable.
+
+... and I think that's everything ...
 
 ## Installation (approximately):
 Warning: You must have a slightly modified version of [Some Simple Wrappers](https://github.com/xleph/ssw) (ssw) installed system wide for the following:
